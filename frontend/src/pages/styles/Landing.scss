@@ -1,73 +1,61 @@
-.landing-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4rem;
-  width: 100%;
-  max-width: 960px;
-}
+.landing {
+  padding: 4rem 0;
+  background: var(--surface);
 
-.hero-section {
-  text-align: center;
-  background-color: #f9f9f9;
-  padding: 3rem 2rem;
-  border-radius: 12px;
-  width: 100%;
-  max-width: 600px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-
-  h1 {
-    font-size: 2.5rem;
-    margin-bottom: 0.5rem;
-  }
-  p {
-    font-size: 1.1rem;
-    color: #666;
-    margin-bottom: 2rem;
-  }
-  .start-button {
-    background-color: var(--primary-color);
-    color: white;
-    border: none;
-    padding: 14px 28px;
-    border-radius: 8px;
-    font-size: 1rem;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background-color 0.2s;
-
-    &:hover {
-      background-color: #4177c2; // #5b96f5의 10% 어둡게
-    }
-  }
-}
-
-.features-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1.5rem;
-  width: 100%;
-  
-  .feature-card {
-    background-color: #fff;
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
+  .container {
+    max-width: 600px;
+    margin: 0 auto;
     padding: 2rem;
-    text-align: center;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
 
-    h3 {
-      margin-top: 0;
-      font-size: 1.25rem;
+  .landing-hero {
+    text-align: center;
+    margin-bottom: 3rem;
+
+    h1 {
+      font-size: 3rem;
+      margin-bottom: 1rem;
     }
-    p {
-      color: #777;
+    .landing-sub {
+      color: var(--muted);
+      font-size: 1.6rem;
+      margin-bottom: 2rem;
+    }
+    .btn {
+      padding: 1rem 2rem;
+      border-radius: var(--radius-l);
+      background: var(--primary);
+      color: var(--primary-contrast);
+      border: none;
+      font-size: 1.6rem;
+      transition: background 0.2s;
+      &:hover {
+        background: #1b7fc2;
+      }
     }
   }
-}
 
-@media (max-width: 768px) {
-  .features-grid {
-    grid-template-columns: 1fr;
+  .landing-features {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+
+    li {
+      background: #fff;
+      border-radius: var(--radius-s);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      padding: 2rem 1.5rem;
+      min-width: 120px;
+      text-align: center;
+
+      h3 {
+        font-size: 1.4rem;
+        margin-bottom: 0.5rem;
+      }
+      p {
+        font-size: 1.2rem;
+        color: var(--muted);
+      }
+    }
   }
 }

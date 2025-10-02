@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import AuthModal from '../../components/AuthModal';
+import AuthModal from '../components/AuthModal.jsx';
 import './styles/LandingPage.scss';
 
 const LandingPage = () => {
