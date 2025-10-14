@@ -3,38 +3,40 @@ import AuthModal from '../components/AuthModal.jsx';
 import './styles/LandingPage.scss';
 
 const LandingPage = () => {
-  const [showModal, setShowModal] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
-  return (
-    <>
-      <div className="landing-container">
-        <main className="landing-main">
-          <section className="hero-section">
-            <h1>포토메모</h1>
-            <p>사진 한장, 한 줄 메모. 태그 · 검색 · 공유까지.</p>
-            <button className="start-button" onClick={() => setShowModal(true)}>
-              시작하기
-            </button>
-          </section>
-          <section className="features-section">
-            <div className="feature-card">
-              <h3>빠른 기록</h3>
-              <p>이미지 업로드 후 한 줄 메모로 즉시 저장.</p>
-            </div>
-            <div className="feature-card">
-              <h3>태그 & 검색</h3>
-              <p>태그로 묶고 검색으로 바로 찾기.</p>
-            </div>
-            <div className="feature-card">
-              <h3>간단 공유</h3>
-              <p>공유 링크로 가볍게 결과물 전달.</p>
-            </div>
-          </section>
-        </main>
-      </div>
-      <AuthModal show={showModal} onClose={() => setShowModal(false)} />
-    </>
-  );
+  return (
+    <>
+      <div className="landing-container">
+        <main className="landing-main">
+          <section className="hero-section">
+            {/* 수정된 부분: 프로젝트 이름과 설명 변경 */}
+            <h1>나만의 맛집 리스트 포토 메모</h1>
+            <p>나만의 맛집을 사진과 함께 기록하고 손쉽게 관리해보세요.</p>
+            <button className="start-button" onClick={() => setShowModal(true)}>
+              시작하기
+            </button>
+          </section>
+          <section className="features-section">
+            {/* 수정된 부분: 기능 설명 변경 */}
+            <div className="feature-card">
+              <h3>다양한 정보 기록</h3>
+              <p>식당 이름, 사진, 방문일, 평점, 가격, 태그 등 상세 정보를 기록하세요.</p>
+            </div>
+            <div className="feature-card">
+              <h3>위치 기반 기록</h3>
+              <p>Google API를 연동하여 가게 위치를 지도에 표시하고 관리할 수 있습니다.</p>
+            </div>
+            <div className="feature-card">
+              <h3>태그 & 검색</h3>
+              <p>자주 사용하는 태그로 묶고, 강력한 검색 기능으로 맛집을 바로 찾아보세요.</p>
+            </div>
+          </section>
+        </main>
+      </div>
+      <AuthModal show={showModal} onClose={() => setShowModal(false)} />
+    </>
+  );
 };
 
 export default LandingPage;
