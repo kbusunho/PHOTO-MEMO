@@ -24,8 +24,8 @@ const LandingPage = () => {
               <p>식당 이름, 사진, 방문일, 평점, 가격, 태그 등 상세 정보를 기록하세요.</p>
             </div>
             <div className="feature-card">
-              <h3>위치 기반 기록</h3>
-              <p>Google API를 연동하여 가게 위치를 지도에 표시하고 관리할 수 있습니다.</p>
+              <h3>위치  기록</h3>
+              <p>가게 위치를 지도로 표시하고 기록할 수 있습니다.</p>
             </div>
             <div className="feature-card">
               <h3>태그 & 검색</h3>

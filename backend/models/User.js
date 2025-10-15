@@ -50,8 +50,6 @@ userSchema.methods.comparePassword=function(plain){
     return bcrypt.compare(plain,this.passwordHash)
 }
 
-
-
 userSchema.methods.toSafeJSON=function(){
     const obj =this.toObject({versionKey:false})
     delete obj.passwordHash
