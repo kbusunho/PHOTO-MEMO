@@ -7,8 +7,9 @@ export const login = async ({ email, password }) => {
 };
 
 // 회원가입 API
-export const signup = async ({ email, password, displayName }) => {
-  const response = await client.post('/api/auth/register', { email, password, displayName });
+// 백엔드의 /register 엔드포인트에 맞게 displayName을 보냅니다.
+export const signup = async ({ email, password, nickname }) => {
+  const response = await client.post('/api/auth/register', { email, password, displayName: nickname });
   return response.data;
 };
 

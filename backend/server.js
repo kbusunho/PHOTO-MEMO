@@ -17,7 +17,7 @@ app.use(cors({
   origin: process.env.FRONT_ORIGIN,
   credentials: true
 }));
-app.use(express.json({ limit: "5mb" })); 
+app.use(express.json({ limit: "5mb" })); // 이미지 업로드 위해 용량 약간 늘림
 app.use(cookieParser());
 
 // MongoDB 연결
@@ -26,7 +26,7 @@ mongoose.connect(process.env.MONGO_URI)
   .catch((err) => console.error("MongoDB 연결 실패:", err.message));
 
 // API 라우트 등록
-app.get("/", (_req, res) => res.send("Matzip-Log API OK"));
+app.get("/", (_req, res) => res.send("PhotoMemo API OK"));
 app.use("/api/auth", authRoutes);
 app.use("/api/photos", photoRoutes);
 
@@ -39,4 +39,3 @@ app.use((req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running: http://localhost:${PORT}`);
 });
-

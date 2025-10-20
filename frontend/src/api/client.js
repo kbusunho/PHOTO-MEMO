@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+// .env 파일에서 API URL 가져오기
+const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 const client = axios.create({
-  baseURL: 'http://localhost:3000',
+  baseURL: baseURL,
   headers: {
     'Content-Type': 'application/json',
   },

@@ -10,6 +10,7 @@ export const getRestaurants = async () => {
 export const uploadRestaurant = async (formData) => {
   const response = await client.post('/api/photos', formData, {
     headers: {
+      // client.js 인터셉터가 토큰을 처리하므로, 여기서는 Content-Type만 명시합니다.
       'Content-Type': 'multipart/form-data',
     },
   });

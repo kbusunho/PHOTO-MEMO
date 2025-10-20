@@ -56,7 +56,7 @@ router.put('/:id', auth, upload.single('image'), async (req, res) => {
         photo.name = name || photo.name;
         photo.location = location || photo.location;
         photo.rating = rating ? parseInt(rating, 10) : photo.rating;
-        photo.memo = memo || photo.memo;
+        photo.memo = memo !== undefined ? memo : photo.memo; // 빈 문자열로도 업데이트 가능하게
 
         // 새 이미지가 업로드된 경우에만 imageUrl을 업데이트
         if (req.file) {

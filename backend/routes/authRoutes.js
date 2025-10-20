@@ -43,7 +43,7 @@ router.post("/register", async (req, res) => {
 
         const user = await User.create({
             email,
-            displayName,
+            displayName: displayName || "", // displayName이 없으면 빈 문자열
             passwordHash,
             role: safeRole
         })
@@ -65,7 +65,7 @@ router.post("/login", async (req, res) => {
         // 1) req.body에서 email, password를 꺼낸다(기본값은 빈 문자열).
         const { email, password } = req.body
 
-        //  2) 이메일을 소문자로 바꿔 활성화된 유저(isActive: true)만 조회한다. .findOne() /.toLowerCase()
+        //  2) 이메일을 소문자로 바꿔 활성화된 유저(isActive: true)만 조회한다. .findOne() /.toLowerCase()
         const user = await User.findOne({
             email: email.toLowerCase(),
             isActive: true
@@ -133,7 +133,7 @@ router.post("/login", async (req, res) => {
         res.cookie('token', token, {
             httpOnly: true,
             sameSite: "lax",
-            secure: "production",
+            secure: process.env.NODE_ENV === "production", // 프로덕션에서만 secure
             maxAge: 7 * 24 * 60 * 60 * 1000
         })
 

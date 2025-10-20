@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { login as apiLogin, signup as apiSignup, getMe } from '../api/auth.js';
+import client from '../api/client.js'; // client 임포트 (헤더 설정용이었으나 이젠 인터셉터가 처리)
 
 const AuthContext = createContext();
 
@@ -9,11 +10,10 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const checkUser = async () => {
-      // 이제는 페이지 로드 시 토큰을 헤더에 설정할 필요가 없습니다.
-      // 인터셉터가 모든 요청에 대해 자동으로 처리해줍니다.
       const token = localStorage.getItem('authToken');
       if (token) {
         try {
+          // 인터셉터가 헤더를 설정해주므로 getMe()만 호출
           const userData = await getMe();
           setUser(userData);
         } catch (error) {
@@ -27,14 +27,17 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (credentials) => {
+    // credentials: { email, password }
     const { token, user } = await apiLogin(credentials);
     localStorage.setItem('authToken', token);
-    // 여기서도 헤더를 설정할 필요가 없습니다.
     setUser(user);
+    return user; // 로그인 성공 시 user 객체 반환
   };
   
   const signup = async (userInfo) => {
+    // userInfo: { email, password, nickname }
     await apiSignup(userInfo);
+    // 회원가입 성공 후 바로 로그인 처리
     await login({ email: userInfo.email, password: userInfo.password });
   };
 
@@ -47,7 +50,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };
