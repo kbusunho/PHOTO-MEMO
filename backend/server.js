@@ -8,6 +8,7 @@ dotenv.config();
 // 라우트 임포트
 const authRoutes = require("./routes/authRoutes");
 const photoRoutes = require("./routes/photoRoutes");
+const userRoutes = require("./routes/userRoutes"); // 1. userRoutes 임포트
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,7 +18,7 @@ app.use(cors({
   origin: process.env.FRONT_ORIGIN,
   credentials: true
 }));
-app.use(express.json({ limit: "5mb" })); // 이미지 업로드 위해 용량 약간 늘림
+app.use(express.json({ limit: "5mb" }));
 app.use(cookieParser());
 
 // MongoDB 연결
@@ -29,6 +30,7 @@ mongoose.connect(process.env.MONGO_URI)
 app.get("/", (_req, res) => res.send("PhotoMemo API OK"));
 app.use("/api/auth", authRoutes);
 app.use("/api/photos", photoRoutes);
+app.use("/api/users", userRoutes); // 2. /api/users 경로로 라우트 등록
 
 // 일치하는 라우트가 없을 경우 404 에러 처리
 app.use((req, res) => {

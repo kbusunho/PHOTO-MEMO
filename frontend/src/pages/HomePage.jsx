@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-// api/photos.js 에서 함수들을 가져옵니다.
 import { getRestaurants, uploadRestaurant, updateRestaurant, deleteRestaurant } from '../api/photos.js';
 import RestaurantCard from '../components/RestaurantCard';
 import RestaurantFormModal from '../components/RestaurantFormModal';
+import AdminPanel from '../components/AdminPanel'; // 1. AdminPanel 컴포넌트 임포트
 
 // 아이콘 SVG 컴포넌트
 const PlusIcon = () => (
@@ -12,23 +12,33 @@ const PlusIcon = () => (
     </svg>
 );
 
+// (신규) 관리자 아이콘
+const AdminIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+    </svg>
+);
+
+
 export default function HomePage() {
-  const { user, logout } = useAuth(); // AuthContext에서 user 정보와 logout 함수 가져오기
+  const { user, logout } = useAuth(); 
   
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRestaurant, setEditingRestaurant] = useState(null);
+  
+  // 2. 관리자 패널 모달 상태 추가
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
 
-  // 컴포넌트 마운트 시 맛집 목록 불러오기
   useEffect(() => {
     const fetchRestaurants = async () => {
+      setLoading(true);
       try {
         const data = await getRestaurants();
         setRestaurants(data);
       } catch (error) {
         console.error("맛집 목록을 불러오는 데 실패했습니다.", error);
-        // 토큰 만료 등의 에러일 경우 로그아웃 처리
         if (error.response && (error.response.status === 401 || error.response.status === 403)) {
             alert("세션이 만료되었습니다. 다시 로그인해주세요.");
             logout();
@@ -38,7 +48,7 @@ export default function HomePage() {
       }
     };
     fetchRestaurants();
-  }, [logout]); // logout을 의존성 배열에 추가
+  }, [logout]);
   
   // --- 이벤트 핸들러 ---
   const handleLogout = () => {
@@ -47,48 +57,50 @@ export default function HomePage() {
     }
   };
   
+  // 맛집 모달 핸들러
   const handleOpenModal = (restaurant = null) => {
     setEditingRestaurant(restaurant);
     setIsModalOpen(true);
   };
-
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingRestaurant(null);
   };
+  
+  // 3. 관리자 패널 모달 핸들러 추가
+  const handleOpenAdminPanel = () => setShowAdminPanel(true);
+  const handleCloseAdminPanel = () => setShowAdminPanel(false);
+
 
   const handleSaveRestaurant = async (formData, imageFile) => {
+    // ... (기존 맛집 저장 로직 - 변경 없음) ...
     const data = new FormData();
     data.append('name', formData.name);
     data.append('location', formData.location);
     data.append('rating', formData.rating);
     data.append('memo', formData.memo);
-    
-    // 새 이미지 파일이 있을 때만 FormData에 추가
     if (imageFile) {
         data.append('image', imageFile);
     }
     
     try {
         if (editingRestaurant) {
-            // 수정 로직 (MongoDB의 _id 사용)
             const updated = await updateRestaurant(editingRestaurant._id, data);
             setRestaurants(restaurants.map(r => r._id === editingRestaurant._id ? updated : r));
         } else {
-            // 추가 로직
             const newRestaurant = await uploadRestaurant(data);
             setRestaurants([newRestaurant, ...restaurants]);
         }
+        handleCloseModal(); // 성공 시에만 모달 닫기
     } catch (error) {
         console.error("저장에 실패했습니다.", error.response?.data?.message || error.message);
         alert(`저장 중 오류가 발생했습니다: ${error.response?.data?.message || '서버 오류'}`);
-        throw error; // 모달이 닫히지 않도록 에러를 다시 던짐
-    } finally {
-        handleCloseModal(); // 성공 시에만 모달 닫기
+        // 에러 발생 시 모달이 닫히지 않도록 throw 제거
     }
   };
 
   const handleDeleteRestaurant = async (id) => {
+    // ... (기존 맛집 삭제 로직 - 변경 없음) ...
     if (window.confirm("정말 이 맛집 기록을 삭제하시겠어요?")) {
         try {
             await deleteRestaurant(id);
@@ -107,8 +119,20 @@ export default function HomePage() {
         <div className="container mx-auto flex justify-between items-center">
           <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-500">맛집 포토로그</h1>
           <div className="flex items-center space-x-4">
-            {/* user.displayName이 있으면 그걸, 없으면 email을 표시 */}
             <span className="text-gray-400 text-sm hidden sm:block">{user.displayName || user.email}</span>
+            
+            {/* 4. user.role이 'admin'일 때만 회원 관리 버튼 표시 */}
+            {user.role === 'admin' && (
+              <button 
+                onClick={handleOpenAdminPanel} 
+                className="bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold py-2 px-3 rounded-lg transition-colors flex items-center space-x-1"
+                title="회원 관리"
+              >
+                <AdminIcon />
+                <span className="hidden sm:inline">회원 관리</span>
+              </button>
+            )}
+
             <button onClick={handleLogout} className="bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-2 px-4 rounded-lg transition-colors">로그아웃</button>
           </div>
         </div>
@@ -116,6 +140,7 @@ export default function HomePage() {
 
       {/* 메인 콘텐츠 */}
       <main className="container mx-auto p-4 md:p-8">
+        {/* ... (기존 맛집 목록 렌더링 로직 - 변경 없음) ... */}
         {loading ? (
           <p className="text-center text-gray-400">맛집 목록을 불러오는 중...</p>
         ) : (
@@ -137,19 +162,24 @@ export default function HomePage() {
       {/* 새 맛집 추가 버튼 */}
       <button
         onClick={() => handleOpenModal()}
-        className="fixed bottom-8 right-8 bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-full shadow-lg transition-transform transform hover:scale-110"
+        className="fixed bottom-8 right-8 bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-full shadow-lg transition-transform transform hover:scale-110 z-20"
         aria-label="새 맛집 추가"
       >
         <PlusIcon />
       </button>
 
-      {/* 모달 */}
+      {/* 맛집 추가/수정 모달 */}
       {isModalOpen && (
         <RestaurantFormModal
           restaurant={editingRestaurant}
           onClose={handleCloseModal}
           onSave={handleSaveRestaurant}
         />
+      )}
+      
+      {/* 5. 관리자 패널 모달 렌더링 */}
+      {showAdminPanel && (
+        <AdminPanel onClose={handleCloseAdminPanel} />
       )}
     </div>
   );
