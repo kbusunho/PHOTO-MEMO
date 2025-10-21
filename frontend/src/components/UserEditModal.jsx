@@ -1,65 +1,68 @@
 import React, { useState } from 'react';
 import { updateUser } from '../api/users';
+import toast from 'react-hot-toast'; // 1. toast 임포트
 
 function UserEditModal({ user, onClose, onUserUpdated }) {
   const [displayName, setDisplayName] = useState(user.displayName || '');
   const [role, setRole] = useState(user.role);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  // const [error, setError] = useState(''); // error 상태 대신 toast 사용
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    // setError('');
 
     try {
       const updatedData = { displayName, role };
-      // API 호출
       const updatedUser = await updateUser(user._id, updatedData);
       
-      // 성공 시 AdminPanel의 목록 상태 업데이트
+      toast.success('사용자 정보가 수정되었습니다.'); // 2. toast.success
       onUserUpdated(updatedUser); 
-      onClose(); // 모달 닫기
+      onClose();
     } catch (err) {
-      setError(err.response?.data?.message || '수정에 실패했습니다.');
+      // 3. toast.error
+      toast.error(err.response?.data?.message || '수정에 실패했습니다.');
     } finally {
       setLoading(false);
     }
   };
 
+  // 4. 다크 모드 스타일 적용
   return (
-    // z-40: AdminPanel(z-30)보다 위에 뜸
-    <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-40 p-4">
-      <div className="bg-gray-800 rounded-lg shadow-2xl p-8 w-full max-w-md relative animate-fade-in-up">
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
-        <h2 className="text-2xl font-bold mb-6 text-white">회원 정보 수정</h2>
-        <p className="text-sm text-gray-400 mb-4">Email: {user.email}</p>
+    <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-80 flex items-center justify-center z-40 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-8 w-full max-w-md relative animate-fade-in-up">
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-white text-2xl font-bold">&times;</button>
+        <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">회원 정보 수정</h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Email: {user.email}</p>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">닉네임</label>
+            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">닉네임</label>
             <input
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder="닉네임"
-              className="w-full p-3 bg-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full p-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">권한</label>
+            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">권한</label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="w-full p-3 bg-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none"
+              className="w-full p-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none"
             >
               <option value="user">User</option>
               <option value="admin">Admin</option>
             </select>
           </div>
           
-          {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+          {/* 에러 메시지를 toast로 띄우므로 이 부분은 삭제
+          {error && <p className="text-red-500 text-sm text-center">{error}</p>} 
+          */}
           
           <div className="flex justify-end pt-4">
             <button 

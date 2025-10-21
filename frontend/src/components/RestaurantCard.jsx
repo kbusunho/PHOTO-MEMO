@@ -6,29 +6,28 @@ const StarIcon = ({ className }) => (
   </svg>
 );
 
-// 👇 1. onTagClick prop 추가
 function RestaurantCard({ restaurant, onEdit, onDelete, onTagClick }) {
+  // 다크 모드 스타일 적용
   return (
-    <div className="bg-gray-800 rounded-lg shadow-xl overflow-hidden transform transition-all hover:-translate-y-2 duration-300 flex flex-col">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transform transition-all hover:-translate-y-2 duration-300 flex flex-col">
       <img src={restaurant.imageUrl} alt={restaurant.name} className="w-full h-48 object-cover" />
       <div className="p-5 flex flex-col flex-grow">
-        <h2 className="text-xl font-bold mb-2">{restaurant.name}</h2>
-        <p className="text-sm text-gray-400 mb-2">{restaurant.location}</p>
+        <h2 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">{restaurant.name}</h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{restaurant.location.address}</p>
         <div className="flex items-center mb-4">
           {[...Array(5)].map((_, i) => (
-            <StarIcon key={i} className={`h-5 w-5 ${i < restaurant.rating ? 'text-yellow-400' : 'text-gray-600'}`} />
+            <StarIcon key={i} className={`h-5 w-5 ${i < restaurant.rating ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`} />
           ))}
         </div>
-        <p className="text-gray-300 text-base flex-grow mb-4 whitespace-pre-wrap">{restaurant.memo}</p>
+        <p className="text-gray-700 dark:text-gray-300 text-base flex-grow mb-4 whitespace-pre-wrap">{restaurant.memo}</p>
         
-        {/* 👇 2. 태그 표시 UI 추가 👇 */}
         {restaurant.tags && restaurant.tags.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-4">
             {restaurant.tags.map((tag) => (
               <button 
                 key={tag} 
-                onClick={() => onTagClick(tag)} // 클릭 시 onTagClick(태그명) 호출
-                className="text-xs bg-gray-600 hover:bg-gray-500 text-gray-200 px-2 py-1 rounded-full transition-colors"
+                onClick={() => onTagClick(tag)}
+                className="text-xs bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 px-2 py-1 rounded-full transition-colors"
               >
                 #{tag}
               </button>
@@ -36,9 +35,9 @@ function RestaurantCard({ restaurant, onEdit, onDelete, onTagClick }) {
           </div>
         )}
 
-        <div className="mt-auto flex justify-end space-x-2 pt-4 border-t border-gray-700/50">
-          <button onClick={() => onEdit(restaurant)} className="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-3 rounded-md transition-colors">수정</button>
-          <button onClick={() => onDelete(restaurant._id)} className="bg-red-800 hover:bg-red-700 text-white text-xs font-bold py-2 px-3 rounded-md transition-colors">삭제</button>
+        <div className="mt-auto flex justify-end space-x-2 pt-4 border-t border-gray-200 dark:border-gray-700/50">
+          <button onClick={() => onEdit(restaurant)} className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white text-xs font-bold py-2 px-3 rounded-md transition-colors">수정</button>
+          <button onClick={() => onDelete(restaurant._id)} className="bg-red-700 dark:bg-red-800 hover:bg-red-600 dark:hover:bg-red-700 text-white text-xs font-bold py-2 px-3 rounded-md transition-colors">삭제</button>
         </div>
       </div>
     </div>
