@@ -1,9 +1,11 @@
 import client from './client.js';
 
-// 내 맛집 기록들 불러오기 (수정됨: params 객체 받기)
+// 내 맛집 기록들 불러오기
 export const getRestaurants = async (params = {}) => {
-  // params는 { search: '...', sort: '...', tag: '...' } 형태가 됩니다.
+  // params에 { search: '...', sort: '...', tag: '...', page: 1 } 등이 담겨 넘어옴
   const response = await client.get('/api/photos', { params });
+  
+  // 👇 반환값이 data 배열에서 { photos: [...], totalPages: 5 } 객체로 변경됨
   return response.data;
 };
 
