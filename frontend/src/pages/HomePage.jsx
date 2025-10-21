@@ -21,7 +21,7 @@ const AdminIcon = () => (
 
 
 export default function HomePage() {
-  const { user, logout } = useAuth(); 
+  const { user, logout } = useAuth(); // user 객체에 로그인한 사용자 정보가 들어있음
   
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -179,7 +179,10 @@ export default function HomePage() {
       
       {/* 5. 관리자 패널 모달 렌더링 */}
       {showAdminPanel && (
-        <AdminPanel onClose={handleCloseAdminPanel} />
+        <AdminPanel 
+          currentUser={user} /* 👈 1. 현재 로그인한 유저 정보 전달 */
+          onClose={handleCloseAdminPanel} 
+        />
       )}
     </div>
   );
