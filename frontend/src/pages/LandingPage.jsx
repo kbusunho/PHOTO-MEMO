@@ -33,7 +33,7 @@ const LandingPage = () => {
             <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
               <h3 className="text-xl font-bold text-gray-900 mb-2">손쉬운 관리</h3>
               <p className="text-gray-600"> {/* 이 부분이 올바르게 수정되었습니다. */}
-                언제 어디서든 새로운 맛집을 추가하고 기존 기록을 수정, 삭제할 수 있습니다.
+                언제 어디서든 새로운 맛집을 추가하고 다크모드로 눈 피로를 줄이고 기존 기록을 수정,삭제할 수 있습니다.
               </p>
             </div>
             <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
