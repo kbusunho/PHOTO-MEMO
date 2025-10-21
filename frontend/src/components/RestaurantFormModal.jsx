@@ -6,10 +6,10 @@ function RestaurantFormModal({ restaurant, onClose, onSave }) {
     location: restaurant?.location || '',
     rating: restaurant?.rating || 3,
     memo: restaurant?.memo || '',
+    // 👇 1. 'tags' 상태 추가 (배열을 쉼표로 구분된 문자열로 변환)
+    tags: restaurant?.tags?.join(', ') || ''
   });
-  // 이미지 파일 상태 추가
   const [imageFile, setImageFile] = useState(null);
-  // 이미지 미리보기 URL 상태 추가
   const [imagePreview, setImagePreview] = useState(restaurant?.imageUrl || null);
   const [loading, setLoading] = useState(false);
 
@@ -34,11 +34,20 @@ function RestaurantFormModal({ restaurant, onClose, onSave }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+
+    // 👇 2. 'tags' 문자열을 배열로 변환
+    const tagsArray = formData.tags
+      .split(',') // 쉼표로 자르기
+      .map(tag => tag.trim()) // 양쪽 공백 제거
+      .filter(tag => tag.length > 0); // 빈 태그 제거
+
     try {
-        // HomePage로 formData와 imageFile을 모두 전달
-        await onSave(formData, imageFile);
+        // 👇 3. onSave로 formData, imageFile, tagsArray를 전달
+        // HomePage에서 이 데이터들을 FormData로 감싸서 보낼 겁니다.
+        await onSave(formData, imageFile, tagsArray);
     } catch (error) {
         console.error("저장 실패 (모달)", error);
+        // 실패 시 로딩 스피너만 멈춤 (모달은 안 닫힘)
     } finally {
         setLoading(false);
     }
@@ -58,8 +67,24 @@ function RestaurantFormModal({ restaurant, onClose, onSave }) {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="맛집 이름" className="w-full p-3 bg-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" required />
-          <input type="text" name="location" value={formData.location} onChange={handleChange} placeholder="위치 (예: 서울 강남구)" className="w-full p-3 bg-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" required />
+          <input 
+            type="text" 
+            name="name" 
+            value={formData.name} 
+            onChange={handleChange} 
+            placeholder="맛집 이름" 
+            className="w-full p-3 bg-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+            required 
+          />
+          <input 
+            type="text" 
+            name="location" 
+            value={formData.location} 
+            onChange={handleChange} 
+            placeholder="위치 (예: 서울 강남구)" 
+            className="w-full p-3 bg-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+            required 
+          />
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-2">별점</label>
             <div className="flex items-center space-x-2">
@@ -67,7 +92,28 @@ function RestaurantFormModal({ restaurant, onClose, onSave }) {
               <span className="text-yellow-400 font-bold">{formData.rating}</span>
             </div>
           </div>
-          <textarea name="memo" value={formData.memo} onChange={handleChange} placeholder="나만의 메모..." rows="4" className="w-full p-3 bg-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+          <textarea 
+            name="memo" 
+            value={formData.memo} 
+            onChange={handleChange} 
+            placeholder="나만의 메모..." 
+            rows="4" 
+            className="w-full p-3 bg-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          ></textarea>
+
+          {/* 👇 4. 태그 입력 필드 추가 👇 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-2">태그</label>
+            <input
+              type="text"
+              name="tags"
+              value={formData.tags}
+              onChange={handleChange}
+              placeholder="예: 강남, 파스타, 데이트 (쉼표로 구분)"
+              className="w-full p-3 bg-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
           <div>
               <label className="block text-sm font-medium text-gray-400 mb-2">사진</label>
               <input 
@@ -79,6 +125,7 @@ function RestaurantFormModal({ restaurant, onClose, onSave }) {
                 required={!restaurant} 
               />
           </div>
+          
           <div className="flex justify-end pt-4">
             <button 
                 type="submit" 

@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // useCallback 추가
 import { useAuth } from '../context/AuthContext';
 import { getRestaurants, uploadRestaurant, updateRestaurant, deleteRestaurant } from '../api/photos.js';
 import RestaurantCard from '../components/RestaurantCard';
 import RestaurantFormModal from '../components/RestaurantFormModal';
-import AdminPanel from '../components/AdminPanel'; // 1. AdminPanel 컴포넌트 임포트
+import AdminPanel from '../components/AdminPanel'; 
 
 // 아이콘 SVG 컴포넌트
 const PlusIcon = () => (
@@ -12,52 +12,77 @@ const PlusIcon = () => (
     </svg>
 );
 
-// (신규) 관리자 아이콘
 const AdminIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
         <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
     </svg>
 );
 
+// 👇 1. 검색 아이콘 추가 👇
+const SearchIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+  </svg>
+);
+
 
 export default function HomePage() {
-  const { user, logout } = useAuth(); // user 객체에 로그인한 사용자 정보가 들어있음
+  const { user, logout } = useAuth(); 
   
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRestaurant, setEditingRestaurant] = useState(null);
-  
-  // 2. 관리자 패널 모달 상태 추가
   const [showAdminPanel, setShowAdminPanel] = useState(false);
-
-  useEffect(() => {
-    const fetchRestaurants = async () => {
-      setLoading(true);
-      try {
-        const data = await getRestaurants();
-        setRestaurants(data);
-      } catch (error) {
-        console.error("맛집 목록을 불러오는 데 실패했습니다.", error);
-        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-            alert("세션이 만료되었습니다. 다시 로그인해주세요.");
-            logout();
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchRestaurants();
-  }, [logout]);
   
-  // --- 이벤트 핸들러 ---
+  // 👇 2. 검색/정렬을 위한 상태 추가 👇
+  const [searchParams, setSearchParams] = useState({
+    search: '',
+    sort: 'createdAt_desc', // 백엔드 기본값과 맞춤
+    tag: ''
+  });
+  // 검색창 입력을 위한 별도 상태 (매번 API 호출 방지)
+  const [searchInput, setSearchInput] = useState('');
+
+  
+  // 👇 3. API 호출 함수 (useCallback으로 감싸기) 👇
+  const fetchRestaurants = useCallback(async () => {
+    setLoading(true);
+    // searchParams의 'sort'가 'createdAt_desc'가 아니면 API로 보냅니다.
+    // 'search'와 'tag'는 비어있으면(falsy) 알아서 무시됩니다.
+    const paramsToSend = {
+      search: searchParams.search,
+      tag: searchParams.tag,
+      sort: searchParams.sort === 'createdAt_desc' ? undefined : searchParams.sort
+    };
+    
+    try {
+      // 현재 searchParams를 API로 전달
+      const data = await getRestaurants(paramsToSend);
+      setRestaurants(data);
+    } catch (error) {
+      console.error("맛집 목록을 불러오는 데 실패했습니다.", error);
+      if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+          alert("세션이 만료되었습니다. 다시 로그인해주세요.");
+          logout();
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [logout, searchParams]); // searchParams가 바뀔 때마다 함수 재생성
+
+  // 👇 4. searchParams가 변경될 때마다 fetchRestaurants 호출
+  useEffect(() => {
+    fetchRestaurants();
+  }, [fetchRestaurants]); // fetchRestaurants가 의존성
+  
+  
   const handleLogout = () => {
     if (window.confirm("정말 로그아웃 하시겠어요?")) {
         logout();
     }
   };
   
-  // 맛집 모달 핸들러
   const handleOpenModal = (restaurant = null) => {
     setEditingRestaurant(restaurant);
     setIsModalOpen(true);
@@ -67,44 +92,77 @@ export default function HomePage() {
     setEditingRestaurant(null);
   };
   
-  // 3. 관리자 패널 모달 핸들러 추가
   const handleOpenAdminPanel = () => setShowAdminPanel(true);
   const handleCloseAdminPanel = () => setShowAdminPanel(false);
 
+  // 👇 5. 검색/정렬 핸들러 추가 👇
+  
+  // 검색창 입력값 변경
+  const handleSearchInputChange = (e) => {
+    setSearchInput(e.target.value);
+  };
 
-  const handleSaveRestaurant = async (formData, imageFile) => {
-    // ... (기존 맛집 저장 로직 - 변경 없음) ...
+  // 검색 버튼 클릭 또는 Enter
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    setSearchParams(prev => ({ ...prev, search: searchInput, tag: '' })); // tag 필터는 초기화
+  };
+
+  // 정렬 드롭다운 변경
+  const handleSortChange = (e) => {
+    setSearchParams(prev => ({ ...prev, sort: e.target.value }));
+  };
+  
+  // 카드에서 태그 클릭
+  const handleTagClick = (tag) => {
+    setSearchInput(''); // 검색창 비우기
+    setSearchParams(prev => ({ ...prev, search: '', tag: tag }));
+  };
+
+  // "필터 지우기" 클릭
+  const clearFilters = () => {
+    setSearchInput('');
+    setSearchParams({ search: '', sort: 'createdAt_desc', tag: '' });
+  };
+  
+
+  // 👇 6. handleSaveRestaurant 수정 👇
+  // 모달에서 tagsArray를 받아옵니다.
+  const handleSaveRestaurant = async (formData, imageFile, tagsArray) => {
     const data = new FormData();
     data.append('name', formData.name);
     data.append('location', formData.location);
     data.append('rating', formData.rating);
     data.append('memo', formData.memo);
+    
+    // tagsArray를 JSON 문자열로 변환하여 FormData에 추가
+    data.append('tags', JSON.stringify(tagsArray));
+
     if (imageFile) {
         data.append('image', imageFile);
     }
     
     try {
         if (editingRestaurant) {
-            const updated = await updateRestaurant(editingRestaurant._id, data);
-            setRestaurants(restaurants.map(r => r._id === editingRestaurant._id ? updated : r));
+            await updateRestaurant(editingRestaurant._id, data);
         } else {
-            const newRestaurant = await uploadRestaurant(data);
-            setRestaurants([newRestaurant, ...restaurants]);
+            await uploadRestaurant(data);
         }
-        handleCloseModal(); // 성공 시에만 모달 닫기
+        handleCloseModal();
+        fetchRestaurants(); // (중요) 저장 후 목록 새로고침
     } catch (error) {
         console.error("저장에 실패했습니다.", error.response?.data?.message || error.message);
         alert(`저장 중 오류가 발생했습니다: ${error.response?.data?.message || '서버 오류'}`);
-        // 에러 발생 시 모달이 닫히지 않도록 throw 제거
+        throw error; // 모달이 닫히지 않도록 에러를 다시 던짐
     }
   };
 
+  // 👇 7. handleDeleteRestaurant 수정 👇
   const handleDeleteRestaurant = async (id) => {
-    // ... (기존 맛집 삭제 로직 - 변경 없음) ...
     if (window.confirm("정말 이 맛집 기록을 삭제하시겠어요?")) {
         try {
             await deleteRestaurant(id);
-            setRestaurants(restaurants.filter(r => r._id !== id));
+            fetchRestaurants(); // (중요) 삭제 후 목록 새로고침
         } catch (error) {
             console.error("삭제에 실패했습니다.", error);
             alert("삭제 중 오류가 발생했습니다.");
@@ -121,7 +179,6 @@ export default function HomePage() {
           <div className="flex items-center space-x-4">
             <span className="text-gray-400 text-sm hidden sm:block">{user.displayName || user.email}</span>
             
-            {/* 4. user.role이 'admin'일 때만 회원 관리 버튼 표시 */}
             {user.role === 'admin' && (
               <button 
                 onClick={handleOpenAdminPanel} 
@@ -138,21 +195,76 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* 메인 콘텐츠 */}
+      {/* 👇 8. 검색/필터 UI 영역 추가 👇 */}
+      <div className="container mx-auto px-4 md:px-8 pt-8">
+        <div className="bg-gray-800 rounded-lg p-4 flex flex-col md:flex-row gap-4 items-center">
+          {/* 검색 Form */}
+          <form onSubmit={handleSearchSubmit} className="flex-grow w-full md:w-auto">
+            <div className="relative">
+              <input 
+                type="text"
+                placeholder="맛집 이름, 위치, 메모, 태그 검색..."
+                value={searchInput}
+                onChange={handleSearchInputChange}
+                className="w-full p-3 pl-10 bg-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                <SearchIcon />
+              </span>
+            </div>
+          </form>
+          
+          {/* 정렬 Dropdown */}
+          <div className="flex-shrink-0 w-full md:w-auto">
+            <select 
+              value={searchParams.sort}
+              onChange={handleSortChange}
+              className="w-full md:w-auto p-3 bg-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none"
+            >
+              <option value="createdAt_desc">최신순</option>
+              <option value="rating_desc">별점 높은 순</option>
+              <option value="rating_asc">별점 낮은 순</option>
+              <option value="name_asc">이름 오름차순</option>
+            </select>
+          </div>
+        </div>
+        
+        {/* 현재 필터 상태 표시 */}
+        {(searchParams.search || searchParams.tag) && (
+          <div className="mt-4 flex items-center gap-2">
+            <span className="text-gray-400 text-sm">
+              {searchParams.tag ? `'#${searchParams.tag}' 태그 검색 결과` : `'${searchParams.search}' 검색 결과`}
+            </span>
+            <button onClick={clearFilters} className="text-xs text-indigo-400 hover:text-indigo-300">
+              (필터 지우기)
+            </button>
+          </div>
+        )}
+      </div>
+
       <main className="container mx-auto p-4 md:p-8">
-        {/* ... (기존 맛집 목록 렌더링 로직 - 변경 없음) ... */}
         {loading ? (
           <p className="text-center text-gray-400">맛집 목록을 불러오는 중...</p>
         ) : (
           restaurants.length === 0 ? (
             <div className="text-center text-gray-500">
-                <p className="text-lg">아직 기록된 맛집이 없네요!</p>
-                <p>오른쪽 아래의 '+' 버튼을 눌러 첫 맛집을 추가해보세요.</p>
+                <p className="text-lg">
+                  {searchParams.search || searchParams.tag ? '검색 결과가 없습니다.' : '아직 기록된 맛집이 없네요!'}
+                </p>
+                <p>
+                  {!(searchParams.search || searchParams.tag) && '오른쪽 아래의 \'+\' 버튼을 눌러 첫 맛집을 추가해보세요.'}
+                </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                 {restaurants.map((r) => (
-                <RestaurantCard key={r._id} restaurant={r} onEdit={handleOpenModal} onDelete={handleDeleteRestaurant} />
+                <RestaurantCard 
+                  key={r._id} 
+                  restaurant={r} 
+                  onEdit={handleOpenModal} 
+                  onDelete={handleDeleteRestaurant}
+                  onTagClick={handleTagClick} // 👇 9. onTagClick 핸들러 전달
+                />
                 ))}
             </div>
           )
@@ -168,7 +280,7 @@ export default function HomePage() {
         <PlusIcon />
       </button>
 
-      {/* 맛집 추가/수정 모달 */}
+      {/* 👇 10. onSave 핸들러 업데이트 👇 */}
       {isModalOpen && (
         <RestaurantFormModal
           restaurant={editingRestaurant}
@@ -177,10 +289,10 @@ export default function HomePage() {
         />
       )}
       
-      {/* 5. 관리자 패널 모달 렌더링 */}
+      {/* 관리자 패널 모달 */}
       {showAdminPanel && (
         <AdminPanel 
-          currentUser={user} /* 👈 1. 현재 로그인한 유저 정보 전달 */
+          currentUser={user}
           onClose={handleCloseAdminPanel} 
         />
       )}

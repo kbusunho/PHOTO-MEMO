@@ -4,25 +4,71 @@ const auth = require('../middlewares/auth');
 const upload = require('../middlewares/upload');
 const Photo = require('../models/Photo');
 
-// GET /api/photos - 로그인한 유저의 모든 맛집 기록 조회
+// GET /api/photos - (수정됨) 검색, 정렬, 태그 필터링 기능 추가
 router.get('/', auth, async (req, res) => {
   try {
-    const photos = await Photo.find({ owner: req.user.id }).sort({ createdAt: -1 });
+    const { search, sort, tag } = req.query;
+    const query = { owner: req.user.id };
+
+    // 1. 검색어 (search) 쿼리
+    if (search) {
+      const regex = new RegExp(search, 'i'); // case-insensitive regex
+      // 이름, 위치, 메모, 태그 배열에서 검색
+      query.$or = [
+        { name: regex },
+        { location: regex },
+        { memo: regex },
+        { tags: regex }
+      ];
+    }
+
+    // 2. 태그 (tag) 쿼리 (태그 클릭 시)
+    if (tag) {
+      query.tags = tag; // 정확히 일치하는 태그가 배열에 포함된 경우
+    }
+
+    // 3. 정렬 (sort) 쿼리
+    let sortOptions = { createdAt: -1 }; // 기본값: 최신순
+    switch (sort) {
+      case 'rating_desc':
+        sortOptions = { rating: -1, createdAt: -1 }; // 별점 높은 순
+        break;
+      case 'rating_asc':
+        sortOptions = { rating: 1, createdAt: -1 }; // 별점 낮은 순
+        break;
+      case 'name_asc':
+        sortOptions = { name: 1, createdAt: -1 }; // 이름 오름차순
+        break;
+      // 기본값이 createdAt: -1 (최신순)이므로 default case 불필요
+    }
+
+    const photos = await Photo.find(query).sort(sortOptions);
     res.status(200).json(photos);
   } catch (error) {
     res.status(500).json({ message: '맛집 기록 조회에 실패했습니다.', error });
   }
 });
 
-// POST /api/photos - 새 맛집 기록 업로드
+// POST /api/photos - (수정됨) 태그 추가 기능
 router.post('/', auth, upload.single('image'), async (req, res) => {
   try {
-    const { name, location, rating, memo } = req.body;
-    // upload 미들웨어가 S3에 업로드 후 req.file 객체에 파일 정보를 추가
+    // 'tags'를 req.body에서 받습니다. (JSON 문자열로 올 예정)
+    const { name, location, rating, memo, tags } = req.body;
     const imageUrl = req.file ? req.file.location : null;
     
     if (!imageUrl) {
         return res.status(400).json({ message: '이미지 파일이 필요합니다.' });
+    }
+
+    // JSON.parse를 통해 tags 문자열을 배열로 변환
+    let tagsArray = [];
+    if (tags) {
+      try {
+        tagsArray = JSON.parse(tags);
+      } catch (e) {
+        console.error('태그 파싱 오류:', e);
+        // 태그 파싱에 실패해도 저장은 계속 진행
+      }
     }
 
     const newPhoto = new Photo({
@@ -31,6 +77,7 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
       rating: parseInt(rating, 10),
       memo,
       imageUrl,
+      tags: tagsArray, // tags 배열 저장
       owner: req.user.id,
     });
 
@@ -42,10 +89,11 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
   }
 });
 
-// PUT /api/photos/:id - 맛집 기록 수정
+// PUT /api/photos/:id - (수정됨) 태그 수정 기능
 router.put('/:id', auth, upload.single('image'), async (req, res) => {
     try {
-        const { name, location, rating, memo } = req.body;
+        // 'tags'를 req.body에서 받습니다.
+        const { name, location, rating, memo, tags } = req.body;
         const photo = await Photo.findOne({ _id: req.params.id, owner: req.user.id });
 
         if (!photo) {
@@ -56,9 +104,23 @@ router.put('/:id', auth, upload.single('image'), async (req, res) => {
         photo.name = name || photo.name;
         photo.location = location || photo.location;
         photo.rating = rating ? parseInt(rating, 10) : photo.rating;
-        photo.memo = memo !== undefined ? memo : photo.memo; // 빈 문자열로도 업데이트 가능하게
+        photo.memo = memo !== undefined ? memo : photo.memo;
 
-        // 새 이미지가 업로드된 경우에만 imageUrl을 업데이트
+        // JSON.parse를 통해 tags 문자열을 배열로 변환
+        if (tags) {
+          try {
+            photo.tags = JSON.parse(tags);
+          } catch (e) {
+            console.error('태그 파싱 오류:', e);
+          }
+        } else if (tags === undefined) {
+          // tags 필드가 요청에 없으면 기존 값 유지
+        } else {
+          // tags 필드가 "" 빈 문자열 등으로 오면 빈 배열로 설정
+           photo.tags = [];
+        }
+
+
         if (req.file) {
             photo.imageUrl = req.file.location;
         }
@@ -71,7 +133,7 @@ router.put('/:id', auth, upload.single('image'), async (req, res) => {
 });
 
 
-// DELETE /api/photos/:id - 맛집 기록 삭제
+// DELETE /api/photos/:id - (변경 없음)
 router.delete('/:id', auth, async (req, res) => {
   try {
     const photo = await Photo.findOneAndDelete({ _id: req.params.id, owner: req.user.id });
