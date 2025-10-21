@@ -24,7 +24,6 @@ const SearchIcon = () => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
   </svg>
 );
-// 1. MapIcon, ListIcon 삭제 (사용 안 함)
 
 export default function HomePage() {
   const { user, logout } = useAuth(); 
@@ -38,9 +37,9 @@ export default function HomePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   
-  // 2. viewMode 상태 삭제
-  // const [viewMode, setViewMode] = useState('card');
-  
+  // 👇 1. 맛집 총 개수를 저장할 상태 추가
+  const [totalRestaurants, setTotalRestaurants] = useState(0);
+
   const [searchParams, setSearchParams] = useState({
     search: '',
     sort: 'createdAt_desc',
@@ -57,13 +56,15 @@ export default function HomePage() {
       tag: searchParams.tag,
       sort: searchParams.sort === 'createdAt_desc' ? undefined : searchParams.sort,
       page: currentPage,
-      limit: 12 // 3. viewMode 로직 제거, 12개로 고정
+      limit: 12
     };
     
     try {
       const data = await getRestaurants(paramsToSend); 
       setRestaurants(data.photos);
       setTotalPages(data.totalPages);
+      // 👇 2. API 응답에서 totalCount를 받아와 상태 업데이트
+      setTotalRestaurants(data.totalCount); 
     } catch (error) {
       console.error("맛집 목록을 불러오는 데 실패했습니다.", error);
       if (error.response && (error.response.status === 401 || error.response.status === 403)) {
@@ -73,7 +74,6 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
-  // 4. 의존성 배열에서 viewMode 제거
   }, [logout, searchParams, currentPage]); 
 
   useEffect(() => {
@@ -103,7 +103,6 @@ export default function HomePage() {
     setSearchInput(e.target.value);
   };
 
-  // 5. 검색/정렬 핸들러에서 setViewMode 제거
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     setCurrentPage(1); 
@@ -133,7 +132,6 @@ export default function HomePage() {
     window.scrollTo(0, 0); 
   };
   
-  // (handleSaveRestaurant, handleDeleteRestaurant는 변경 없음)
   const handleSaveRestaurant = async (formData, imageFile, tagsArray) => {
     const data = new FormData();
     data.append('name', formData.name);
@@ -240,20 +238,31 @@ export default function HomePage() {
             <option value="rating_asc">별점 낮은 순</option>
             <option value="name_asc">이름 오름차순</option>
           </select>
-
-          {/* 6. 지도 뷰 토글 버튼 삭제 */}
         </div>
         
-        {(searchParams.search || searchParams.tag) && (
-          <div className="mt-4 flex items-center gap-2">
-            <span className="text-gray-500 dark:text-gray-400 text-sm">
-              {searchParams.tag ? `'#${searchParams.tag}' 태그 검색 결과` : `'${searchParams.search}' 검색 결과`}
-            </span>
-            <button onClick={clearFilters} className="text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-300">
-              (필터 지우기)
-            </button>
-          </div>
-        )}
+        <div className="mt-4 flex items-center justify-between gap-2">
+            <div>
+              {(searchParams.search || searchParams.tag) && (
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-500 dark:text-gray-400 text-sm">
+                    {searchParams.tag ? `'#${searchParams.tag}' 태그 검색 결과` : `'${searchParams.search}' 검색 결과`}
+                  </span>
+                  <button onClick={clearFilters} className="text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-300">
+                    (필터 지우기)
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* 👇 3. 맛집 총 개수를 표시하는 UI 추가 👇 */}
+            <div>
+              {!loading && (
+                <span className="text-gray-500 dark:text-gray-400 text-sm font-semibold">
+                  내 맛집 기록: {totalRestaurants}개
+                </span>
+              )}
+            </div>
+        </div>
       </div>
 
       <main className="container mx-auto p-4 md:p-8">
@@ -270,7 +279,6 @@ export default function HomePage() {
                 </p>
             </div>
           ) : (
-            // 7. viewMode 조건부 렌더링 삭제
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                     {restaurants.map((r) => (
@@ -320,3 +328,4 @@ export default function HomePage() {
     </div>
   );
 }
+
