@@ -1,86 +1,86 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from './context/AuthContext'; // 인증 상태 및 함수 사용
-import LandingPage from './pages/LandingPage.jsx'; // 랜딩 페이지 컴포넌트
-import HomePage from './pages/HomePage.jsx'; // 메인 홈 페이지 컴포넌트
-import ProfilePage from './pages/ProfilePage.jsx'; // 공개 프로필 페이지 컴포넌트
+import { useAuth } from './context/AuthContext';
+import LandingPage from './pages/LandingPage.jsx';
+import HomePage from './pages/HomePage.jsx';
+import ProfilePage from './pages/ProfilePage.jsx';
 
-/**
- * 애플리케이션의 최상위 컴포넌트.
- * URL 해시(#)를 감지하여 현재 보여줄 페이지(뷰)를 결정하고 렌더링합니다.
- */
 function App() {
-  // AuthContext에서 사용자 로그인 상태(user)와 로딩 상태(loading) 가져오기
-  const { user, loading } = useAuth();
+  const { user, loading } = useAuth(); // AuthContext에서 사용자 정보와 로딩 상태 가져오기
 
-  // 현재 보여줄 뷰 상태 ('loading', 'landing', 'home', 'profile')
+  // 현재 보여줄 뷰 ('loading', 'landing', 'home', 'profile')와 프로필 ID 상태
   const [currentView, setCurrentView] = useState('loading');
-  // 프로필 페이지에서 보여줄 사용자의 ID
   const [profileUserId, setProfileUserId] = useState(null);
 
-  // URL 해시 변경 감지 및 뷰 상태 업데이트 로직
+  // URL 해시 변경 및 사용자 로그인 상태 변경 감지
   useEffect(() => {
-    // 해시 변경 시 실행될 함수
-    const handleHashChange = () => {
-      const hash = window.location.hash; // 예: #/user/6718d8b...
+    const handleNavigation = () => {
+      const hash = window.location.hash;
 
       if (loading) {
-          // AuthContext 로딩 중에는 뷰를 'loading'으로 유지
-          setCurrentView('loading');
-          return;
+        // AuthContext가 로딩 중일 때는 아무것도 하지 않음
+        setCurrentView('loading');
+        return;
       }
 
-      if (user) { // === 사용자가 로그인한 상태 ===
+      if (user) { // 로그인 상태일 때
         if (hash.startsWith('#/user/')) {
-          // URL이 '#/user/ID' 형태일 경우, 프로필 뷰로 설정
-          const userId = hash.substring(7); // '#/user/' 다음의 ID 문자열 추출
+          const userId = hash.substring(7);
           setProfileUserId(userId);
           setCurrentView('profile');
         } else {
-          // 그 외의 모든 경로 (예: '#/' 또는 해시 없음)는 홈 뷰로 설정
+          // 로그인 상태이고 특별한 경로가 아니면 홈으로
           setCurrentView('home');
-          setProfileUserId(null); // 프로필 ID 초기화
+          setProfileUserId(null);
+          // 홈 화면일 때 해시를 강제로 #/ 로 변경 (선택 사항)
+          if (hash !== '#/' && hash !== '') {
+             window.location.hash = '#/';
+          }
         }
-      } else { // === 사용자가 로그아웃한 상태 ===
-        // 로그아웃 상태에서는 항상 랜딩 페이지만 표시
+      } else { // 로그아웃 상태일 때
+        // 로그아웃 상태에서는 항상 랜딩 페이지
         setCurrentView('landing');
-        setProfileUserId(null); // 프로필 ID 초기화
+        setProfileUserId(null);
+        // 로그아웃 시 해시 제거 (선택 사항)
+        if (hash) {
+            // 브라우저 히스토리 변경 없이 URL만 정리
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
       }
     };
 
-    // 컴포넌트 초기 마운트 시 및 해시 변경 시 핸들러 실행
-    handleHashChange();
-    window.addEventListener('hashchange', handleHashChange);
+    // 초기 로드 시 및 해시 변경 시 핸들러 실행
+    handleNavigation(); // 초기 뷰 설정
+    window.addEventListener('hashchange', handleNavigation); // 해시 변경 감지
 
-    // 컴포넌트 언마운트 시 이벤트 리스너 정리 (메모리 누수 방지)
+    // 컴포넌트 언마운트 시 리스너 제거
     return () => {
-      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('hashchange', handleNavigation);
     };
-  // user 상태 또는 loading 상태가 변경될 때마다 useEffect 재실행
+  // 👇 의존성 배열에 loading과 user 추가 (이 값들이 변할 때마다 뷰를 다시 결정해야 함)
   }, [user, loading]);
 
-  // AuthContext 로딩 중이거나 뷰 상태가 'loading'일 때 빈 화면 표시 (깜빡임 방지)
+  // AuthContext 로딩 중 화면
   if (currentView === 'loading') {
-     return <div className="min-h-screen bg-white dark:bg-gray-900"></div>;
+     return <div className="min-h-screen bg-white dark:bg-gray-900"></div>; // 로딩 중 빈 화면
   }
 
-  // 현재 뷰 상태에 따라 렌더링할 컴포넌트 결정
+  // 현재 뷰 상태에 따라 다른 페이지 컴포넌트 렌더링
   const renderView = () => {
     switch (currentView) {
       case 'profile':
-        // ProfilePage에 userId와 뷰 전환 함수(홈으로 가기) 전달
+        // ProfilePage에 userId와 뷰 전환(홈으로 가기) 함수 전달
         return <ProfilePage userId={profileUserId} onViewChange={() => window.location.hash = '#/'} />;
       case 'home':
-        // HomePage에 뷰 전환 함수(프로필 보기) 전달
+        // HomePage에 뷰 전환(프로필 보기) 함수 전달
         return <HomePage onViewChange={(view, userId) => window.location.hash = `#/user/${userId}`} />;
       case 'landing':
       default:
-        // 랜딩 페이지 렌더링
+        // LandingPage 렌더링
         return <LandingPage />;
     }
   };
 
-  // 선택된 뷰 컴포넌트 렌더링
-  return <>{renderView()}</>;
+  return <>{renderView()}</>; // 선택된 뷰 렌더링
 }
 
 export default App;
