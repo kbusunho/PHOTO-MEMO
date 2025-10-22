@@ -245,18 +245,22 @@ export default function HomePage({ onViewChange }) { // App.jsx로부터 onViewC
             맛집 포토로그
           </h1>
           <div className="flex items-center space-x-2 sm:space-x-4">
-            <span className="text-gray-500 dark:text-gray-400 text-sm hidden sm:block">{user.displayName || user.email}</span>
-            {user.role === 'admin' && (
-              <button onClick={handleOpenAdminPanel} className="bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold py-2 px-3 rounded-lg transition-colors flex items-center space-x-1" title="회원 관리">
-                <AdminIcon />
-                <span className="hidden sm:inline">회원 관리</span>
-              </button>
-            )}
-            <button onClick={handleLogout} className="bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-2 px-3 sm:px-4 rounded-lg transition-colors">로그아웃</button>
-            {user.role !== 'admin' && (
-              <button onClick={handleDeleteAccount} className="bg-gray-500 hover:bg-gray-600 text-white text-xs font-bold py-2 px-3 rounded-lg transition-colors" title="회원 탈퇴">
-                탈퇴
-              </button>
+            {user && (
+                <>
+                    <span className="text-gray-500 dark:text-gray-400 text-sm hidden sm:block">{user.displayName || user.email}</span>
+                    {user.role === 'admin' && (
+                      <button onClick={handleOpenAdminPanel} className="bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold py-2 px-3 rounded-lg transition-colors flex items-center space-x-1" title="회원 관리">
+                        <AdminIcon />
+                        <span className="hidden sm:inline">회원 관리</span>
+                      </button>
+                    )}
+                    <button onClick={handleLogout} className="bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-2 px-3 sm:px-4 rounded-lg transition-colors">로그아웃</button>
+                    {user.role !== 'admin' && (
+                      <button onClick={handleDeleteAccount} className="bg-gray-500 hover:bg-gray-600 text-white text-xs font-bold py-2 px-3 rounded-lg transition-colors" title="회원 탈퇴">
+                        탈퇴
+                      </button>
+                    )}
+                </>
             )}
             <ThemeToggle />
           </div>
@@ -297,6 +301,7 @@ export default function HomePage({ onViewChange }) { // App.jsx로부터 onViewC
                   </select>
             </div>
         </div>
+
 
         {/* 필터 정보 및 총 개수 표시 */}
         <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">

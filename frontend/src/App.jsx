@@ -13,69 +13,67 @@ function App() {
 
   // URL 해시 변경 및 사용자 로그인 상태 변경 감지
   useEffect(() => {
+    // AuthContext가 로딩 중이면 'loading' 상태 유지하고 아무것도 하지 않음
+    if (loading) {
+      setCurrentView('loading');
+      return;
+    }
+
+    // 로딩이 끝났으면 라우팅 로직 실행
     const handleNavigation = () => {
       const hash = window.location.hash;
 
-      if (loading) {
-        // AuthContext가 로딩 중일 때는 아무것도 하지 않음
-        setCurrentView('loading');
-        return;
-      }
-
-      if (user) { // 로그인 상태일 때
+      if (user) { // --- 로그인 상태일 때 ---
         if (hash.startsWith('#/user/')) {
+          // 프로필 뷰
           const userId = hash.substring(7);
           setProfileUserId(userId);
           setCurrentView('profile');
         } else {
-          // 로그인 상태이고 특별한 경로가 아니면 홈으로
+          // 그 외에는 홈 뷰
           setCurrentView('home');
           setProfileUserId(null);
-          // 홈 화면일 때 해시를 강제로 #/ 로 변경 (선택 사항)
+          // 홈 화면인데 해시가 루트가 아니면 루트로 변경 (뒤로 가기 가능하도록 hash 사용)
           if (hash !== '#/' && hash !== '') {
              window.location.hash = '#/';
           }
         }
-      } else { // 로그아웃 상태일 때
-        // 로그아웃 상태에서는 항상 랜딩 페이지
-        setCurrentView('landing');
+      } else { // --- 로그아웃 상태일 때 ---
+        setCurrentView('landing'); // 무조건 랜딩 페이지
         setProfileUserId(null);
-        // 로그아웃 시 해시 제거 (선택 사항)
+        // URL에서 해시 제거 (페이지 새로고침 없이)
         if (hash) {
-            // 브라우저 히스토리 변경 없이 URL만 정리
             window.history.replaceState(null, '', window.location.pathname + window.location.search);
         }
       }
     };
 
     // 초기 로드 시 및 해시 변경 시 핸들러 실행
-    handleNavigation(); // 초기 뷰 설정
-    window.addEventListener('hashchange', handleNavigation); // 해시 변경 감지
+    handleNavigation(); // 마운트 시 현재 상태에 맞는 뷰 설정
+    window.addEventListener('hashchange', handleNavigation); // 해시 변경 감지 시작
 
     // 컴포넌트 언마운트 시 리스너 제거
     return () => {
       window.removeEventListener('hashchange', handleNavigation);
     };
-  // 👇 의존성 배열에 loading과 user 추가 (이 값들이 변할 때마다 뷰를 다시 결정해야 함)
+  // loading 또는 user 상태가 변경될 때마다 이 effect 재실행
   }, [user, loading]);
 
-  // AuthContext 로딩 중 화면
+  // AuthContext 로딩 중일 때 표시할 화면 (깜빡임 방지)
   if (currentView === 'loading') {
-     return <div className="min-h-screen bg-white dark:bg-gray-900"></div>; // 로딩 중 빈 화면
+     // 로딩 스피너 등을 여기에 추가할 수 있습니다.
+     return <div className="min-h-screen bg-white dark:bg-gray-900"></div>;
   }
 
   // 현재 뷰 상태에 따라 다른 페이지 컴포넌트 렌더링
   const renderView = () => {
     switch (currentView) {
       case 'profile':
-        // ProfilePage에 userId와 뷰 전환(홈으로 가기) 함수 전달
         return <ProfilePage userId={profileUserId} onViewChange={() => window.location.hash = '#/'} />;
       case 'home':
-        // HomePage에 뷰 전환(프로필 보기) 함수 전달
         return <HomePage onViewChange={(view, userId) => window.location.hash = `#/user/${userId}`} />;
       case 'landing':
       default:
-        // LandingPage 렌더링
         return <LandingPage />;
     }
   };
