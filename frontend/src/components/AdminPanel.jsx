@@ -8,7 +8,8 @@ function AdminPanel({ currentUser, onClose }) {
   const [users, setUsers] = useState([]); // 회원 목록 상태
   const [loading, setLoading] = useState(true); // 로딩 상태
   const [error, setError] = useState(null); // 에러 상태
-  const [stats, setStats] = useState({ totalUsers: 0, todayUsers: 0, totalPhotos: 0 }); // 통계 상태
+  // 👇 stats 상태 기본값에 todayDeletedUsers 추가
+  const [stats, setStats] = useState({ totalUsers: 0, todayUsers: 0, totalPhotos: 0, todayDeletedUsers: 0 }); // 통계 상태
   const [isEditModalOpen, setIsEditModalOpen] = useState(false); // 수정 모달 열림 상태
   const [editingUser, setEditingUser] = useState(null); // 수정할 사용자 정보
 
@@ -20,9 +21,10 @@ function AdminPanel({ currentUser, onClose }) {
         // 사용자 목록과 통계 정보를 동시에 요청
         const [usersData, statsData] = await Promise.all([
           getAllUsers(),
-          getAdminStats()
+          getAdminStats() // 이 API 응답에 todayDeletedUsers가 포함될 것으로 기대
         ]);
         setUsers(usersData);
+        // 👇 백엔드에서 받은 statsData를 그대로 상태에 저장
         setStats(statsData);
         setError(null); // 에러 초기화
       } catch (err) {
@@ -71,7 +73,8 @@ function AdminPanel({ currentUser, onClose }) {
         await deleteUser(userToDelete._id); // 삭제 API 호출
         // 상태 업데이트 (화면에서 즉시 제거)
         setUsers(users.filter(u => u._id !== userToDelete._id));
-        setStats(prev => ({ ...prev, totalUsers: prev.totalUsers - 1 })); // 통계 업데이트
+        // 통계 업데이트 (totalUsers만 감소, todayDeleted는 백엔드 구현 필요)
+        setStats(prev => ({ ...prev, totalUsers: prev.totalUsers - 1 }));
         toast.success("사용자가 삭제되었습니다.");
       } catch (err) {
         toast.error(`삭제 실패: ${err.response?.data?.message || '서버 오류'}`);
@@ -84,14 +87,15 @@ function AdminPanel({ currentUser, onClose }) {
       {/* 모달 배경 */}
       <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-30 p-4">
         {/* 모달 컨텐츠 */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-6xl relative animate-fade-in-up max-h-[90vh] flex flex-col">
+        {/* max-w-7xl로 너비 증가, 패딩 조정 */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-7xl relative animate-fade-in-up max-h-[90vh] flex flex-col">
           {/* 닫기 버튼 */}
           <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
           {/* 모달 제목 */}
           <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">회원 관리 (관리자)</h2>
 
-          {/* 통계 대시보드 */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          {/* 👇 통계 대시보드 (grid-cols-4로 변경) 👇 */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg text-center">
               <div className="text-sm text-gray-600 dark:text-gray-400">총 회원 수</div>
               <div className="text-3xl font-bold text-gray-900 dark:text-white">{loading ? '...' : stats.totalUsers}</div>
@@ -99,6 +103,12 @@ function AdminPanel({ currentUser, onClose }) {
             <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg text-center">
               <div className="text-sm text-gray-600 dark:text-gray-400">오늘 가입</div>
               <div className="text-3xl font-bold text-gray-900 dark:text-white">{loading ? '...' : stats.todayUsers}</div>
+            </div>
+            {/* '오늘 탈퇴' 항목 추가 */}
+            <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg text-center">
+              <div className="text-sm text-gray-600 dark:text-gray-400">오늘 탈퇴</div>
+              {/* 백엔드 API 응답의 todayDeletedUsers를 사용, 없으면 0 */}
+              <div className="text-3xl font-bold text-gray-900 dark:text-white">{loading ? '...' : (stats.todayDeletedUsers || 0)}</div>
             </div>
             <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg text-center">
               <div className="text-sm text-gray-600 dark:text-gray-400">총 맛집 기록</div>
@@ -190,3 +200,4 @@ function AdminPanel({ currentUser, onClose }) {
 }
 
 export default AdminPanel;
+
