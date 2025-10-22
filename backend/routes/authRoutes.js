@@ -1,10 +1,10 @@
-const express = require("express")
-const router = express.Router()
-const jwt = require("jsonwebtoken")
-const bcrypt = require("bcrypt")
-const User = require("../models/User")
+const express = require("express");
+const router = express.Router();
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
+const User = require("../models/User");
 
-
+// JWT 토큰 생성 함수
 function makeToken(user) {
     return jwt.sign(
         {
@@ -14,171 +14,184 @@ function makeToken(user) {
         },
         process.env.JWT_SECRET,
         {
-            expiresIn: "7d"
+            expiresIn: "7d" // 토큰 유효기간 7일
         }
-
-    )
+    );
 }
 
+// POST /api/auth/register - 회원가입
 router.post("/register", async (req, res) => {
     try {
-        const { email, password, displayName, role } = req.body
+        // 👇 phoneNumber 받기 추가됨
+        const { email, password, displayName, role, phoneNumber } = req.body;
 
+        // 필수 값 검증
         if (!email || !password) {
-            return res.status(400).json({ message: "이메일/비밀번호 필요" })
+            return res.status(400).json({ message: "이메일과 비밀번호는 필수입니다." });
         }
 
-        const exists = await User.findOne({
-            email: email.toLowerCase()
-        })
+        // 이메일 중복 확인
+        const exists = await User.findOne({ email: email.toLowerCase() });
         if (exists) {
-
-            return res.status(400).json({ message: "이미 가입된 이메일" })
+            return res.status(400).json({ message: "이미 가입된 이메일입니다." });
         }
 
-        const passwordHash = await bcrypt.hash(password, 10)
+        // 비밀번호 해싱
+        const passwordHash = await bcrypt.hash(password, 10);
 
-        const validRoles = ["user", "admin"]
-        const safeRole = validRoles.includes(role) ? role : "user"
+        // 역할(role) 설정 (기본값 'user')
+        const validRoles = ["user", "admin"];
+        const safeRole = validRoles.includes(role) ? role : "user";
 
+        // 사용자 생성
         const user = await User.create({
-            email,
-            displayName: displayName || "", // displayName이 없으면 빈 문자열
+            email: email.toLowerCase(), // 이메일은 소문자로 저장
+            displayName: displayName || "",
             passwordHash,
-            role: safeRole
-        })
+            role: safeRole,
+            phoneNumber: phoneNumber || "" // 👇 phoneNumber 저장 추가됨
+        });
 
-        res.status(201).json({ user: user.toSafeJSON() })
+        // 성공 응답 (비밀번호 제외)
+        res.status(201).json({ user: user.toSafeJSON() });
 
     } catch (error) {
+        // Mongoose Validation Error 처리
+        if (error.name === 'ValidationError') {
+            const messages = Object.values(error.errors).map(e => e.message);
+            return res.status(400).json({ message: `회원가입 실패: ${messages.join(', ')}` });
+        }
+        // 기타 서버 오류
+        console.error("회원가입 오류:", error);
         return res.status(500).json({
-            message: "회원가입 실패",
+            message: "회원가입 중 서버 오류가 발생했습니다.",
             error: error.message
-        })
-
+        });
     }
-})
+});
 
-const LOCK_MAX = 5
+// POST /api/auth/login - 로그인
+const LOCK_MAX = 5; // 로그인 실패 최대 횟수
 router.post("/login", async (req, res) => {
     try {
-        // 1) req.body에서 email, password를 꺼낸다(기본값은 빈 문자열).
-        const { email, password } = req.body
+        const { email, password } = req.body;
 
-        //  2) 이메일을 소문자로 바꿔 활성화된 유저(isActive: true)만 조회한다. .findOne() /.toLowerCase()
+        // 이메일로 활성 사용자 찾기
         const user = await User.findOne({
             email: email.toLowerCase(),
-            isActive: true
-        })
-
+            isActive: true // 비활성(잠금) 계정은 제외
+        });
 
         const invalidMsg = { message: "이메일 또는 비밀번호가 올바르지 않습니다." };
 
-
-        // 3 사용자 없음
+        // 사용자가 없거나 비활성 상태
         if (!user) {
             return res.status(400).json({
                 ...invalidMsg,
                 loginAttempts: null,
                 remainingAttempts: null,
                 locked: false
-            })
+            });
         }
 
-        // 4)비밀번호 검증 (User 모델에 comparePassword 메서드가 있다고 가정)
-        const ok = await user.comparePassword(password)
+        // 비밀번호 검증
+        const ok = await user.comparePassword(password);
 
-        // 5)비밀번호 불일치
+        // 비밀번호 불일치
         if (!ok) {
-            user.loginAttempts += 1
+            user.loginAttempts += 1;
+            const remaining = Math.max(0, LOCK_MAX - user.loginAttempts);
 
-            const remaining = Math.max(0, LOCK_MAX - user.loginAttempts)
-
-            // 5-1 실패 누적 임계치 이상 일때 계정 잠금
+            // 실패 횟수 초과 시 계정 잠금
             if (user.loginAttempts >= LOCK_MAX) {
-                user.isActive = false//잠금처리
-
-                await user.save()
-
-                return res.status(423).json({
-                    message: "유효성 검증 실패로 계정이 잠겼습니다. 관리자에게 문의하세요.",
+                user.isActive = false; // 계정 비활성화
+                await user.save();
+                return res.status(423).json({ // 423 Locked
+                    message: "로그인 실패 횟수 초과로 계정이 잠겼습니다. 관리자에게 문의하세요.",
                     loginAttempts: user.loginAttempts,
                     remainingAttempts: 0,
                     locked: true
-                })
+                });
             }
-            // 5-2 아직 잠금 전 400 현재 실패 남은 횟수 안내
-            await user.save()
+
+            // 아직 잠금 전이면 남은 횟수 안내
+            await user.save();
             return res.status(400).json({
                 ...invalidMsg,
                 loginAttempts: user.loginAttempts,
                 remainingAttempts: remaining,
                 locked: false
-            })
+            });
         }
 
+        // 로그인 성공: 실패 카운트 초기화 및 로그인 상태 업데이트
+        user.loginAttempts = 0;
+        user.isLoggedIn = true; // isLoggedIn 상태 업데이트
+        user.lastLoginAt = new Date(); // 마지막 로그인 시간 기록
+        await user.save();
 
-        // 6 로그인 성공: 실패 카운트 초기화 접속 정보 업데이트
+        // JWT 토큰 발급
+        const token = makeToken(user);
 
-        user.loginAttempts = 0
-        user.isLoggined = true
-        user.lastLoginAt = new Date()
+        // (선택 사항) 쿠키에 토큰 저장 (HttpOnly 권장)
+        // res.cookie('token', token, {
+        //     httpOnly: true,
+        //     sameSite: "lax", // CSRF 방어
+        //     secure: process.env.NODE_ENV === "production", // HTTPS에서만 전송
+        //     maxAge: 7 * 24 * 60 * 60 * 1000 // 7일 유효
+        // });
 
-        await user.save()
-
-        // 7 JWT 발급 및 쿠키 설정
-        const token = makeToken(user)
-
-
-        res.cookie('token', token, {
-            httpOnly: true,
-            sameSite: "lax",
-            secure: process.env.NODE_ENV === "production", // 프로덕션에서만 secure
-            maxAge: 7 * 24 * 60 * 60 * 1000
-        })
-
-
-        // 8 성공 응답: 사용자 정보 +토큰+ 참조용 카운트 
+        // 성공 응답 (사용자 정보 + 토큰)
         return res.status(200).json({
             user: user.toSafeJSON(),
             token,
-            loginAttempts:0,
-            remainingAttempts:LOCK_MAX,
-            locked:false
-        })
+            loginAttempts: 0,
+            remainingAttempts: LOCK_MAX,
+            locked: false
+        });
 
     } catch (error) {
+        console.error("로그인 오류:", error);
         return res.status(500).json({
-            message: "로그인 실패",
+            message: "로그인 중 서버 오류가 발생했습니다.",
             error: error.message
-        })
+        });
     }
-})
+});
 
-
-
-
+// GET /api/auth/me - 내 정보 확인 (토큰 기반)
 router.get("/me", async (req, res) => {
     try {
-        const h = req.headers.authorization || ""
+        // Authorization 헤더에서 토큰 추출
+        const authHeader = req.headers.authorization || "";
+        const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
-        const token = h.startsWith("Bearer") ? h.slice(7) : null
+        if (!token) {
+            return res.status(401).json({ message: "인증 토큰이 필요합니다." });
+        }
 
-        if (!token) return res.status(401).json({ message: "인증 필요" })
+        // 토큰 검증
+        const payload = jwt.verify(token, process.env.JWT_SECRET);
 
-        const payload = jwt.verify(token, process.env.JWT_SECRET)
+        // 페이로드의 ID로 사용자 조회
+        const user = await User.findById(payload.id);
 
-        const user = await User.findById(payload.id)
+        if (!user || !user.isActive) { // 사용자가 없거나 비활성 상태면 404
+            return res.status(404).json({ message: "사용자를 찾을 수 없거나 비활성 상태입니다." });
+        }
 
-        if (!user) return res.status(404).json({ message: "사용자 없음" })
-
-        res.status(200).json(user.toSafeJSON())
+        // 성공 응답 (비밀번호 제외)
+        res.status(200).json(user.toSafeJSON());
 
     } catch (error) {
-
-        res.status(401).json({ message: "토큰 무효", error: error.message })
-
+        // 토큰 만료 또는 검증 실패
+        if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+            return res.status(401).json({ message: "유효하지 않거나 만료된 토큰입니다.", error: error.message });
+        }
+        // 기타 서버 오류
+        console.error("/me 오류:", error);
+        res.status(500).json({ message: "내 정보 조회 중 서버 오류가 발생했습니다.", error: error.message });
     }
-})
+});
 
-module.exports = router
+module.exports = router;
