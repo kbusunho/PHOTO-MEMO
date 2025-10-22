@@ -5,8 +5,9 @@ import RestaurantCard from '../components/RestaurantCard';
 import RestaurantFormModal from '../components/RestaurantFormModal';
 import AdminPanel from '../components/AdminPanel';
 import Pagination from '../components/Pagination';
-import ThemeToggle from '../components/ThemeToggle'; 
-import toast, { Toaster } from 'react-hot-toast'; 
+import ThemeToggle from '../components/ThemeToggle';
+import toast, { Toaster } from 'react-hot-toast';
+import Footer from '../components/Footer';
 
 // 아이콘 SVG 컴포넌트
 const PlusIcon = () => (
@@ -26,17 +27,17 @@ const SearchIcon = () => (
 );
 
 export default function HomePage() {
-  const { user, logout } = useAuth(); 
-  
+  const { user, logout } = useAuth();
+
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRestaurant, setEditingRestaurant] = useState(null);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
-  
+
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  
+
   // 👇 1. 맛집 총 개수를 저장할 상태 추가
   const [totalRestaurants, setTotalRestaurants] = useState(0);
 
@@ -47,10 +48,10 @@ export default function HomePage() {
   });
   const [searchInput, setSearchInput] = useState('');
 
-  
+
   const fetchRestaurants = useCallback(async () => {
     setLoading(true);
-    
+
     const paramsToSend = {
       search: searchParams.search,
       tag: searchParams.tag,
@@ -58,13 +59,13 @@ export default function HomePage() {
       page: currentPage,
       limit: 12
     };
-    
+
     try {
-      const data = await getRestaurants(paramsToSend); 
+      const data = await getRestaurants(paramsToSend);
       setRestaurants(data.photos);
       setTotalPages(data.totalPages);
       // 👇 2. API 응답에서 totalCount를 받아와 상태 업데이트
-      setTotalRestaurants(data.totalCount); 
+      setTotalRestaurants(data.totalCount);
     } catch (error) {
       console.error("맛집 목록을 불러오는 데 실패했습니다.", error);
       if (error.response && (error.response.status === 401 || error.response.status === 403)) {
@@ -74,19 +75,19 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
-  }, [logout, searchParams, currentPage]); 
+  }, [logout, searchParams, currentPage]);
 
   useEffect(() => {
     fetchRestaurants();
-  }, [fetchRestaurants]); 
-  
-  
+  }, [fetchRestaurants]);
+
+
   const handleLogout = () => {
     if (window.confirm("정말 로그아웃 하시겠어요?")) {
         logout();
     }
   };
-  
+
   const handleOpenModal = (restaurant = null) => {
     setEditingRestaurant(restaurant);
     setIsModalOpen(true);
@@ -95,33 +96,33 @@ export default function HomePage() {
     setIsModalOpen(false);
     setEditingRestaurant(null);
   };
-  
+
   const handleOpenAdminPanel = () => setShowAdminPanel(true);
   const handleCloseAdminPanel = () => setShowAdminPanel(false);
-  
+
   const handleSearchInputChange = (e) => {
     setSearchInput(e.target.value);
   };
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    setCurrentPage(1); 
+    setCurrentPage(1);
     setSearchParams(prev => ({ ...prev, search: searchInput, tag: '' }));
   };
 
   const handleSortChange = (e) => {
-    setCurrentPage(1); 
+    setCurrentPage(1);
     setSearchParams(prev => ({ ...prev, sort: e.target.value }));
   };
-  
+
   const handleTagClick = (tag) => {
-    setCurrentPage(1); 
+    setCurrentPage(1);
     setSearchInput('');
     setSearchParams(prev => ({ ...prev, search: '', tag: tag }));
   };
 
   const clearFilters = () => {
-    setCurrentPage(1); 
+    setCurrentPage(1);
     setSearchInput('');
     setSearchParams({ search: '', sort: 'createdAt_desc', tag: '' });
   };
@@ -129,20 +130,20 @@ export default function HomePage() {
   const handlePageChange = (pageNumber) => {
     if (pageNumber < 1 || pageNumber > totalPages) return;
     setCurrentPage(pageNumber);
-    window.scrollTo(0, 0); 
+    window.scrollTo(0, 0);
   };
-  
+
   const handleSaveRestaurant = async (formData, imageFile, tagsArray) => {
     const data = new FormData();
     data.append('name', formData.name);
-    data.append('address', formData.address); 
+    data.append('address', formData.address);
     data.append('rating', formData.rating);
     data.append('memo', formData.memo);
     data.append('tags', JSON.stringify(tagsArray));
     if (imageFile) {
         data.append('image', imageFile);
     }
-    
+
     await toast.promise(
       (async () => {
           if (editingRestaurant) {
@@ -182,9 +183,9 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white font-sans transition-colors duration-200">
+    <div className="flex flex-col min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white font-sans transition-colors duration-200">
       <Toaster position="top-right" />
-      
+
       <header className="bg-white dark:bg-gray-900/80 backdrop-blur-sm sticky top-0 z-10 p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="container mx-auto flex justify-between items-center">
           <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
@@ -192,10 +193,10 @@ export default function HomePage() {
           </h1>
           <div className="flex items-center space-x-2 sm:space-x-4">
             <span className="text-gray-500 dark:text-gray-400 text-sm hidden sm:block">{user.displayName || user.email}</span>
-            
+
             {user.role === 'admin' && (
-              <button 
-                onClick={handleOpenAdminPanel} 
+              <button
+                onClick={handleOpenAdminPanel}
                 className="bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold py-2 px-3 rounded-lg transition-colors flex items-center space-x-1"
                 title="회원 관리"
               >
@@ -205,7 +206,7 @@ export default function HomePage() {
             )}
 
             <button onClick={handleLogout} className="bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-2 px-3 sm:px-4 rounded-lg transition-colors">로그아웃</button>
-            
+
             <ThemeToggle />
           </div>
         </div>
@@ -215,7 +216,7 @@ export default function HomePage() {
         <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4 flex flex-col md:flex-row gap-4 items-center">
           <form onSubmit={handleSearchSubmit} className="flex-grow w-full md:w-auto">
             <div className="relative">
-              <input 
+              <input
                 type="text"
                 placeholder="맛집 이름, 위치, 메모, 태그 검색..."
                 value={searchInput}
@@ -227,8 +228,8 @@ export default function HomePage() {
               </span>
             </div>
           </form>
-          
-          <select 
+
+          <select
             value={searchParams.sort}
             onChange={handleSortChange}
             className="w-full md:w-auto p-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none"
@@ -239,8 +240,10 @@ export default function HomePage() {
             <option value="name_asc">이름 오름차순</option>
           </select>
         </div>
-        
+
+        {/* 👇 여기가 수정된 부분입니다 👇 */}
         <div className="mt-4 flex items-center justify-between gap-2">
+            {/* 필터 정보 (왼쪽) */}
             <div>
               {(searchParams.search || searchParams.tag) && (
                 <div className="flex items-center gap-2">
@@ -254,7 +257,7 @@ export default function HomePage() {
               )}
             </div>
 
-            {/* 👇 3. 맛집 총 개수를 표시하는 UI 추가 👇 */}
+            {/* 맛집 총 개수 (오른쪽) */}
             <div>
               {!loading && (
                 <span className="text-gray-500 dark:text-gray-400 text-sm font-semibold">
@@ -263,9 +266,11 @@ export default function HomePage() {
               )}
             </div>
         </div>
+        {/* 👆 여기까지가 수정된 부분입니다 👆 */}
+
       </div>
 
-      <main className="container mx-auto p-4 md:p-8">
+      <main className="container mx-auto p-4 md:p-8 flex-grow">
         {loading ? (
           <p className="text-center text-gray-500 dark:text-gray-400">맛집 목록을 불러오는 중...</p>
         ) : (
@@ -282,10 +287,10 @@ export default function HomePage() {
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                     {restaurants.map((r) => (
-                    <RestaurantCard 
-                      key={r._id} 
-                      restaurant={r} 
-                      onEdit={handleOpenModal} 
+                    <RestaurantCard
+                      key={r._id}
+                      restaurant={r}
+                      onEdit={handleOpenModal}
                       onDelete={handleDeleteRestaurant}
                       onTagClick={handleTagClick}
                     />
@@ -318,13 +323,16 @@ export default function HomePage() {
           onSave={handleSaveRestaurant}
         />
       )}
-      
+
       {showAdminPanel && (
-        <AdminPanel 
+        <AdminPanel
           currentUser={user}
-          onClose={handleCloseAdminPanel} 
+          onClose={handleCloseAdminPanel}
         />
       )}
+
+      {/* Footer 컴포넌트 추가 */}
+      <Footer />
     </div>
   );
 }
