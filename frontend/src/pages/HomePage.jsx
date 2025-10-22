@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getRestaurants, uploadRestaurant, updateRestaurant, deleteRestaurant } from '../api/photos.js';
 import { deleteMe } from '../api/users.js';
+// 👇 PasswordChangeModal 임포트 추가
+import PasswordChangeModal from '../components/PasswordChangeModal';
 import RestaurantCard from '../components/RestaurantCard';
 import RestaurantFormModal from '../components/RestaurantFormModal';
 import AdminPanel from '../components/AdminPanel';
@@ -26,6 +28,13 @@ const SearchIcon = () => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
   </svg>
 );
+// 👇 설정(톱니바퀴) 아이콘 추가
+const CogIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+      <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01-.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+    </svg>
+);
+
 // 가격대 옵션 (백엔드 모델과 일치)
 const PRICE_RANGE_OPTIONS = ['₩', '₩₩', '₩₩₩', '₩₩₩₩'];
 const PRICE_RANGE_LABELS = { '₩': '만원 이하', '₩₩': '1~3만원', '₩₩₩': '3~5만원', '₩₩₩₩': '5만원 이상' };
@@ -48,9 +57,11 @@ export default function HomePage({ onViewChange }) { // App.jsx로부터 onViewC
     search: '',
     sort: 'createdAt_desc',
     tag: '',
-    visited: undefined, // undefined: 전체, 'true': 방문, 'false': 위시리스트
-    priceRange: '', // 예: '₩₩'
+    visited: undefined,
+    priceRange: '',
   });
+  // 👇 비밀번호 변경 모달 상태 추가
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   // --- 데이터 로딩 ---
   const fetchRestaurants = useCallback(async () => {
@@ -229,6 +240,10 @@ export default function HomePage({ onViewChange }) { // App.jsx로부터 onViewC
     }
    };
 
+   // 👇 비밀번호 변경 모달 핸들러 추가
+   const handleOpenPasswordModal = () => setShowPasswordModal(true);
+   const handleClosePasswordModal = () => setShowPasswordModal(false);
+
   // 필터 초기화 버튼 표시 여부 계산
   const showClearButton = searchParams.search || searchParams.tag || searchParams.visited !== undefined || searchParams.priceRange;
 
@@ -244,7 +259,8 @@ export default function HomePage({ onViewChange }) { // App.jsx로부터 onViewC
           <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
             맛집 포토로그
           </h1>
-          <div className="flex items-center space-x-2 sm:space-x-4">
+          {/* 간격 살짝 줄임 space-x-1 sm:space-x-2 */}
+          <div className="flex items-center space-x-1 sm:space-x-2">
             {user && (
                 <>
                     <span className="text-gray-500 dark:text-gray-400 text-sm hidden sm:block">{user.displayName || user.email}</span>
@@ -254,6 +270,14 @@ export default function HomePage({ onViewChange }) { // App.jsx로부터 onViewC
                         <span className="hidden sm:inline">회원 관리</span>
                       </button>
                     )}
+                    {/* 👇 비밀번호 변경 버튼 추가 👇 */}
+                    <button
+                        onClick={handleOpenPasswordModal}
+                        className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                        title="비밀번호 변경"
+                    >
+                        <CogIcon />
+                    </button>
                     <button onClick={handleLogout} className="bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-2 px-3 sm:px-4 rounded-lg transition-colors">로그아웃</button>
                     {user.role !== 'admin' && (
                       <button onClick={handleDeleteAccount} className="bg-gray-500 hover:bg-gray-600 text-white text-xs font-bold py-2 px-3 rounded-lg transition-colors" title="회원 탈퇴">
@@ -269,74 +293,74 @@ export default function HomePage({ onViewChange }) { // App.jsx로부터 onViewC
 
       {/* 검색 / 필터 영역 */}
       <div className="container mx-auto px-4 md:px-8 pt-6 sm:pt-8">
-        {/* 상단: 검색창, 정렬 */}
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4 flex flex-col md:flex-row gap-4 items-center">
-          <form onSubmit={handleSearchSubmit} className="flex-grow w-full md:w-auto">
-            <div className="relative">
-              <input type="text" placeholder="맛집 이름, 위치, 메모, 태그 검색..." value={searchInput} onChange={handleSearchInputChange} className="w-full p-3 pl-10 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"><SearchIcon /></span>
-            </div>
-          </form>
-          <select value={searchParams.sort} onChange={handleSortChange} className="w-full md:w-auto p-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none">
-            <option value="createdAt_desc">최신순</option>
-            <option value="rating_desc">별점 높은 순</option>
-            <option value="rating_asc">별점 낮은 순</option>
-            <option value="name_asc">이름 오름차순</option>
-            <option value="price_asc">가격 낮은 순</option>
-            <option value="price_desc">가격 높은 순</option>
-          </select>
-        </div>
+         {/* 상단: 검색창, 정렬 */}
+         <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4 flex flex-col md:flex-row gap-4 items-center">
+           <form onSubmit={handleSearchSubmit} className="flex-grow w-full md:w-auto">
+             <div className="relative">
+               <input type="text" placeholder="맛집 이름, 위치, 메모, 태그 검색..." value={searchInput} onChange={handleSearchInputChange} className="w-full p-3 pl-10 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"><SearchIcon /></span>
+             </div>
+           </form>
+           <select value={searchParams.sort} onChange={handleSortChange} className="w-full md:w-auto p-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none">
+             <option value="createdAt_desc">최신순</option>
+             <option value="rating_desc">별점 높은 순</option>
+             <option value="rating_asc">별점 낮은 순</option>
+             <option value="name_asc">이름 오름차순</option>
+             <option value="price_asc">가격 낮은 순</option>
+             <option value="price_desc">가격 높은 순</option>
+           </select>
+         </div>
 
-        {/* 하단: 방문/위시리스트 탭, 가격대 필터 */}
-        <div className="mt-4 flex flex-col sm:flex-row gap-4 items-stretch">
-            <div className="flex-shrink-0 bg-white dark:bg-gray-800 shadow-sm rounded-lg p-2 flex space-x-1">
-                <button onClick={() => handleVisitedFilterChange(undefined)} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${searchParams.visited === undefined ? 'bg-indigo-600 text-white' : 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}> 전체 </button>
-                <button onClick={() => handleVisitedFilterChange('true')} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${searchParams.visited === 'true' ? 'bg-indigo-600 text-white' : 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}> 방문한 곳 </button>
-                 <button onClick={() => handleVisitedFilterChange('false')} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${searchParams.visited === 'false' ? 'bg-indigo-600 text-white' : 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}> 가고싶은 곳 </button>
-            </div>
-            <div className="flex-shrink-0 bg-white dark:bg-gray-800 shadow-sm rounded-lg p-2 flex items-center">
-                 <select value={searchParams.priceRange} onChange={(e) => handlePriceFilterChange(e.target.value)} className="w-full sm:w-auto p-1.5 bg-transparent dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none text-sm">
-                    <option value="">-- 가격대 --</option>
-                    {PRICE_RANGE_OPTIONS.map(option => ( <option key={option} value={option}>{option} ({PRICE_RANGE_LABELS[option]})</option> ))}
-                  </select>
-            </div>
-        </div>
+         {/* 하단: 방문/위시리스트 탭, 가격대 필터 */}
+         <div className="mt-4 flex flex-col sm:flex-row gap-4 items-stretch">
+             <div className="flex-shrink-0 bg-white dark:bg-gray-800 shadow-sm rounded-lg p-2 flex space-x-1">
+                 <button onClick={() => handleVisitedFilterChange(undefined)} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${searchParams.visited === undefined ? 'bg-indigo-600 text-white' : 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}> 전체 </button>
+                 <button onClick={() => handleVisitedFilterChange('true')} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${searchParams.visited === 'true' ? 'bg-indigo-600 text-white' : 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}> 방문한 곳 </button>
+                  <button onClick={() => handleVisitedFilterChange('false')} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${searchParams.visited === 'false' ? 'bg-indigo-600 text-white' : 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}> 가고싶은 곳 </button>
+             </div>
+             <div className="flex-shrink-0 bg-white dark:bg-gray-800 shadow-sm rounded-lg p-2 flex items-center">
+                  <select value={searchParams.priceRange} onChange={(e) => handlePriceFilterChange(e.target.value)} className="w-full sm:w-auto p-1.5 bg-transparent dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none text-sm">
+                     <option value="">-- 가격대 --</option>
+                     {PRICE_RANGE_OPTIONS.map(option => ( <option key={option} value={option}>{option} ({PRICE_RANGE_LABELS[option]})</option> ))}
+                   </select>
+             </div>
+         </div>
 
 
-        {/* 필터 정보 및 총 개수 표시 */}
-        <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            {searchParams.search && ( <span className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">검색: '{searchParams.search}'</span> )}
-            {searchParams.tag && ( <span className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">태그: '#{searchParams.tag}'</span> )}
-            {searchParams.priceRange && ( <span className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">가격대: {searchParams.priceRange}</span> )}
-            {showClearButton && ( <button onClick={clearFilters} className="text-xs text-indigo-500 dark:text-indigo-400 hover:underline ml-1"> (모든 필터 지우기) </button> )}
-          </div>
-          <div className="flex-shrink-0 mt-2 sm:mt-0">
-            {!loading && ( <span className="text-gray-500 dark:text-gray-400 text-sm font-semibold"> {showClearButton ? '필터 결과: ' : '내 맛집 기록: '} {totalRestaurants}개 </span> )}
-          </div>
-        </div>
-      </div>
+         {/* 필터 정보 및 총 개수 표시 */}
+         <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+           <div className="flex items-center gap-2 flex-wrap">
+             {searchParams.search && ( <span className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">검색: '{searchParams.search}'</span> )}
+             {searchParams.tag && ( <span className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">태그: '#{searchParams.tag}'</span> )}
+             {searchParams.priceRange && ( <span className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">가격대: {searchParams.priceRange}</span> )}
+             {showClearButton && ( <button onClick={clearFilters} className="text-xs text-indigo-500 dark:text-indigo-400 hover:underline ml-1"> (모든 필터 지우기) </button> )}
+           </div>
+           <div className="flex-shrink-0 mt-2 sm:mt-0">
+             {!loading && ( <span className="text-gray-500 dark:text-gray-400 text-sm font-semibold"> {showClearButton ? '필터 결과: ' : '내 맛집 기록: '} {totalRestaurants}개 </span> )}
+           </div>
+         </div>
+       </div>
 
       {/* 메인 콘텐츠 영역 */}
       <main className="container mx-auto p-4 md:px-8 flex-grow">
-        {loading && ( <p className="text-center text-gray-500 dark:text-gray-400 py-10">맛집 목록을 불러오는 중...</p> )}
-        {!loading && restaurants.length === 0 && (
-          <div className="text-center text-gray-500 dark:text-gray-500 py-10">
-              <p className="text-lg"> {searchParams.search || searchParams.tag || searchParams.visited !== undefined || searchParams.priceRange ? '검색 결과가 없습니다.' : '아직 기록된 맛집이 없네요!'} </p>
-              <p> {!(searchParams.search || searchParams.tag || searchParams.visited !== undefined || searchParams.priceRange) && '오른쪽 아래의 \'+\' 버튼을 눌러 첫 맛집을 추가해보세요.'} </p>
-          </div>
-        )}
-        {!loading && restaurants.length > 0 && (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8">
-                {restaurants.map((r) => (
-                <RestaurantCard key={r._id} restaurant={r} onEdit={handleOpenModal} onDelete={handleDeleteRestaurant} onTagClick={handleTagClick} />
-                ))}
-            </div>
-            {totalPages > 1 && ( <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} /> )}
-          </>
-        )}
-      </main>
+         {loading && ( <p className="text-center text-gray-500 dark:text-gray-400 py-10">맛집 목록을 불러오는 중...</p> )}
+         {!loading && restaurants.length === 0 && (
+           <div className="text-center text-gray-500 dark:text-gray-500 py-10">
+               <p className="text-lg"> {searchParams.search || searchParams.tag || searchParams.visited !== undefined || searchParams.priceRange ? '검색 결과가 없습니다.' : '아직 기록된 맛집이 없네요!'} </p>
+               <p> {!(searchParams.search || searchParams.tag || searchParams.visited !== undefined || searchParams.priceRange) && '오른쪽 아래의 \'+\' 버튼을 눌러 첫 맛집을 추가해보세요.'} </p>
+           </div>
+         )}
+         {!loading && restaurants.length > 0 && (
+           <>
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8">
+                 {restaurants.map((r) => (
+                 <RestaurantCard key={r._id} restaurant={r} onEdit={handleOpenModal} onDelete={handleDeleteRestaurant} onTagClick={handleTagClick} />
+                 ))}
+             </div>
+             {totalPages > 1 && ( <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} /> )}
+           </>
+         )}
+       </main>
 
       {/* FAB */}
       <button onClick={() => handleOpenModal()} className="fixed bottom-8 right-8 bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-full shadow-lg transition-transform transform hover:scale-110 z-20" aria-label="새 맛집 추가"> <PlusIcon /> </button>
@@ -344,6 +368,11 @@ export default function HomePage({ onViewChange }) { // App.jsx로부터 onViewC
       {/* 모달들 */}
       {isModalOpen && ( <RestaurantFormModal restaurant={editingRestaurant} onClose={handleCloseModal} onSave={handleSaveRestaurant} /> )}
       {showAdminPanel && ( <AdminPanel currentUser={user} onClose={handleCloseAdminPanel} onViewProfile={(userId) => onViewChange('profile', userId)} /> )}
+
+      {/* 👇 비밀번호 변경 모달 렌더링 추가 👇 */}
+      {showPasswordModal && (
+        <PasswordChangeModal onClose={handleClosePasswordModal} />
+      )}
 
       {/* 푸터 */}
       <Footer />
