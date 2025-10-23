@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getRestaurants, uploadRestaurant, updateRestaurant, deleteRestaurant } from '../api/photos.js';
 import { deleteMe } from '../api/users.js';
-// 👇 PasswordChangeModal 임포트 추가
 import PasswordChangeModal from '../components/PasswordChangeModal';
 import RestaurantCard from '../components/RestaurantCard';
 import RestaurantFormModal from '../components/RestaurantFormModal';
@@ -28,7 +27,6 @@ const SearchIcon = () => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
   </svg>
 );
-// 👇 설정(톱니바퀴) 아이콘 추가
 const CogIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
       <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01-.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
@@ -40,40 +38,48 @@ const PRICE_RANGE_OPTIONS = ['₩', '₩₩', '₩₩₩', '₩₩₩₩'];
 const PRICE_RANGE_LABELS = { '₩': '만원 이하', '₩₩': '1~3만원', '₩₩₩': '3~5만원', '₩₩₩₩': '5만원 이상' };
 
 
-export default function HomePage({ onViewChange }) { // App.jsx로부터 onViewChange 함수 받음
-  const { user, logout } = useAuth();
+export default function HomePage({ onViewChange }) {
+  const { user, logout, loading: authLoading } = useAuth(); // AuthContext의 로딩 상태 가져오기
 
   // --- 상태 관리 ---
-  const [restaurants, setRestaurants] = useState([]); // 맛집 목록
-  const [loading, setLoading] = useState(true); // 로딩 상태
-  const [isModalOpen, setIsModalOpen] = useState(false); // 맛집 추가/수정 모달
-  const [editingRestaurant, setEditingRestaurant] = useState(null); // 수정할 맛집 데이터
-  const [showAdminPanel, setShowAdminPanel] = useState(false); // 관리자 패널 모달
-  const [currentPage, setCurrentPage] = useState(1); // 현재 페이지
-  const [totalPages, setTotalPages] = useState(1); // 총 페이지 수
-  const [totalRestaurants, setTotalRestaurants] = useState(0); // 총 맛집 개수 (필터링된)
-  const [searchInput, setSearchInput] = useState(''); // 검색창 입력값
-  const [searchParams, setSearchParams] = useState({ // API 요청 파라미터
-    search: '',
-    sort: 'createdAt_desc',
-    tag: '',
-    visited: undefined,
-    priceRange: '',
-  });
-  // 👇 비밀번호 변경 모달 상태 추가
+  const [restaurants, setRestaurants] = useState([]);
+  const [loading, setLoading] = useState(true); // HomePage 데이터 로딩 상태
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingRestaurant, setEditingRestaurant] = useState(null);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRestaurants, setTotalRestaurants] = useState(0);
+  const [searchInput, setSearchInput] = useState('');
+  const [searchParams, setSearchParams] = useState({
+        search: '',
+        sort: 'createdAt_desc',
+        tag: '',
+        visited: undefined,
+        priceRange: '',
+   });
   const [showPasswordModal, setShowPasswordModal] = useState(false);
 
-  // --- 데이터 로딩 ---
+  // --- 데이터 로딩 함수 ---
   const fetchRestaurants = useCallback(async () => {
-    setLoading(true);
-    // API로 보낼 파라미터 정리 (빈 값은 보내지 않음)
+    // AuthContext가 로딩 중이거나 사용자가 없으면(로그아웃 상태면) API 호출 안 함
+    if (authLoading || !user) {
+        setLoading(false); // 로딩 상태 해제
+        // 데이터 초기화 추가
+        setRestaurants([]);
+        setTotalPages(1);
+        setTotalRestaurants(0);
+        return;
+    }
+
+    setLoading(true); // 데이터 로딩 시작
     const paramsToSend = {
       search: searchParams.search || undefined,
       tag: searchParams.tag || undefined,
       sort: searchParams.sort === 'createdAt_desc' ? undefined : searchParams.sort,
       page: currentPage,
       limit: 12,
-      visited: searchParams.visited, // undefined, 'true', 'false' 그대로 전달
+      visited: searchParams.visited,
       priceRange: searchParams.priceRange || undefined,
     };
 
@@ -86,19 +92,28 @@ export default function HomePage({ onViewChange }) { // App.jsx로부터 onViewC
       console.error("맛집 목록 로딩 실패:", error);
       if (error.response?.status === 401 || error.response?.status === 403) {
           toast.error("세션 만료. 다시 로그인해주세요.");
-          logout();
+          logout(); // 로그아웃 처리
       } else {
           toast.error("맛집 목록 로딩 실패");
       }
+      // 실패 시 데이터 초기화
+      setRestaurants([]);
+      setTotalPages(1);
+      setTotalRestaurants(0);
     } finally {
-      setLoading(false);
+      setLoading(false); // 데이터 로딩 종료 (성공/실패 무관)
     }
-  }, [logout, searchParams, currentPage]);
+  // 의존성 배열에 authLoading과 user 추가
+  }, [authLoading, user, logout, searchParams, currentPage]);
 
-  // searchParams나 currentPage가 변경되면 데이터 다시 로드
+  // --- 데이터 로딩 Effect ---
   useEffect(() => {
+    // authLoading 상태가 변경되거나, user 상태가 변경되거나,
+    // fetchRestaurants 함수 자체가 변경될 때(내부 의존성 변경 시) 실행
     fetchRestaurants();
+  // 의존성 배열 수정: fetchRestaurants 함수 자체를 넣음
   }, [fetchRestaurants]);
+
 
   // --- 이벤트 핸들러 ---
   const handleLogout = () => {
@@ -189,12 +204,15 @@ export default function HomePage({ onViewChange }) { // App.jsx로부터 onViewC
               setCurrentPage(1); // 생성 후 1페이지로 이동
               clearFilters(); // 필터 초기화 (새 글은 필터 없이 보여야 함)
           }
-          handleCloseModal(); // 성공 시 모달 닫기
+          // handleCloseModal(); // 성공 시 모달 닫기는 onSave 콜백에서 처리됨 -> toast.promise 성공 시 자동 호출하도록 변경
           fetchRestaurants(); // 목록 새로고침
       })(),
       { // react-hot-toast 옵션
           loading: '저장 중...',
-          success: <b>{editingRestaurant ? '수정 완료!' : '저장 완료!'}</b>,
+          success: (result) => { // 성공 시 모달 닫기
+              handleCloseModal();
+              return <b>{editingRestaurant ? '수정 완료!' : '저장 완료!'}</b>;
+          },
           error: (err) => err.response?.data?.message || '저장 실패'
       }
     );
@@ -240,7 +258,7 @@ export default function HomePage({ onViewChange }) { // App.jsx로부터 onViewC
     }
    };
 
-   // 👇 비밀번호 변경 모달 핸들러 추가
+   // 비밀번호 변경 모달 핸들러 추가
    const handleOpenPasswordModal = () => setShowPasswordModal(true);
    const handleClosePasswordModal = () => setShowPasswordModal(false);
 
@@ -261,7 +279,7 @@ export default function HomePage({ onViewChange }) { // App.jsx로부터 onViewC
           </h1>
           {/* 간격 살짝 줄임 space-x-1 sm:space-x-2 */}
           <div className="flex items-center space-x-1 sm:space-x-2">
-            {user && (
+            {user && ( // 로그인 상태일 때만 내부 버튼들 렌더링
                 <>
                     <span className="text-gray-500 dark:text-gray-400 text-sm hidden sm:block">{user.displayName || user.email}</span>
                     {user.role === 'admin' && (
@@ -270,7 +288,7 @@ export default function HomePage({ onViewChange }) { // App.jsx로부터 onViewC
                         <span className="hidden sm:inline">회원 관리</span>
                       </button>
                     )}
-                    {/* 👇 비밀번호 변경 버튼 추가 👇 */}
+                    {/* 비밀번호 변경 버튼 */}
                     <button
                         onClick={handleOpenPasswordModal}
                         className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
@@ -286,6 +304,7 @@ export default function HomePage({ onViewChange }) { // App.jsx로부터 onViewC
                     )}
                 </>
             )}
+            {/* 테마 토글 버튼 (로그인 여부 무관) */}
             <ThemeToggle />
           </div>
         </div>
@@ -336,21 +355,26 @@ export default function HomePage({ onViewChange }) { // App.jsx로부터 onViewC
              {showClearButton && ( <button onClick={clearFilters} className="text-xs text-indigo-500 dark:text-indigo-400 hover:underline ml-1"> (모든 필터 지우기) </button> )}
            </div>
            <div className="flex-shrink-0 mt-2 sm:mt-0">
-             {!loading && ( <span className="text-gray-500 dark:text-gray-400 text-sm font-semibold"> {showClearButton ? '필터 결과: ' : '내 맛집 기록: '} {totalRestaurants}개 </span> )}
+             {!authLoading && !loading && user && ( <span className="text-gray-500 dark:text-gray-400 text-sm font-semibold"> {showClearButton ? '필터 결과: ' : '내 맛집 기록: '} {totalRestaurants}개 </span> )}
            </div>
          </div>
        </div>
 
       {/* 메인 콘텐츠 영역 */}
       <main className="container mx-auto p-4 md:px-8 flex-grow">
-         {loading && ( <p className="text-center text-gray-500 dark:text-gray-400 py-10">맛집 목록을 불러오는 중...</p> )}
-         {!loading && restaurants.length === 0 && (
+         {/* 로딩 상태 표시 */}
+         {(authLoading || loading) && (
+              <p className="text-center text-gray-500 dark:text-gray-400 py-10">맛집 목록을 불러오는 중...</p>
+         )}
+         {/* 데이터 없을 때 메시지 (로딩 끝나고 user는 있는데 restaurants가 없을 때) */}
+         {!authLoading && !loading && user && restaurants.length === 0 && (
            <div className="text-center text-gray-500 dark:text-gray-500 py-10">
                <p className="text-lg"> {searchParams.search || searchParams.tag || searchParams.visited !== undefined || searchParams.priceRange ? '검색 결과가 없습니다.' : '아직 기록된 맛집이 없네요!'} </p>
                <p> {!(searchParams.search || searchParams.tag || searchParams.visited !== undefined || searchParams.priceRange) && '오른쪽 아래의 \'+\' 버튼을 눌러 첫 맛집을 추가해보세요.'} </p>
            </div>
          )}
-         {!loading && restaurants.length > 0 && (
+         {/* 맛집 카드 목록 (로딩 끝나고 user 있고 restaurants 있을 때) */}
+         {!authLoading && !loading && user && restaurants.length > 0 && (
            <>
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8">
                  {restaurants.map((r) => (
@@ -362,17 +386,15 @@ export default function HomePage({ onViewChange }) { // App.jsx로부터 onViewC
          )}
        </main>
 
-      {/* FAB */}
-      <button onClick={() => handleOpenModal()} className="fixed bottom-8 right-8 bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-full shadow-lg transition-transform transform hover:scale-110 z-20" aria-label="새 맛집 추가"> <PlusIcon /> </button>
-
-      {/* 모달들 */}
-      {isModalOpen && ( <RestaurantFormModal restaurant={editingRestaurant} onClose={handleCloseModal} onSave={handleSaveRestaurant} /> )}
-      {showAdminPanel && ( <AdminPanel currentUser={user} onClose={handleCloseAdminPanel} onViewProfile={(userId) => onViewChange('profile', userId)} /> )}
-
-      {/* 👇 비밀번호 변경 모달 렌더링 추가 👇 */}
-      {showPasswordModal && (
-        <PasswordChangeModal onClose={handleClosePasswordModal} />
+      {/* FAB (로그인 상태일 때만 표시) */}
+      {user && (
+          <button onClick={() => handleOpenModal()} className="fixed bottom-8 right-8 bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-full shadow-lg transition-transform transform hover:scale-110 z-20" aria-label="새 맛집 추가"> <PlusIcon /> </button>
       )}
+
+      {/* 모달들 (로그인 상태일 때만 표시될 수 있도록 조건 추가) */}
+      {user && isModalOpen && ( <RestaurantFormModal restaurant={editingRestaurant} onClose={handleCloseModal} onSave={handleSaveRestaurant} /> )}
+      {user && showAdminPanel && ( <AdminPanel currentUser={user} onClose={handleCloseAdminPanel} onViewProfile={(userId) => onViewChange('profile', userId)} /> )}
+      {user && showPasswordModal && ( <PasswordChangeModal onClose={handleClosePasswordModal} /> )}
 
       {/* 푸터 */}
       <Footer />
