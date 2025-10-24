@@ -20,6 +20,21 @@ export const getRestaurants = async (params = {}) => {
 };
 
 /**
+ * Fetch the public feed of restaurants from all users.
+ * Supports pagination and sorting.
+ * @param {object} params - Optional query parameters.
+ * @param {number} [params.page] - Page number for pagination (default: 1).
+ * @param {number} [params.limit] - Number of items per page (default: 12).
+ * @param {string} [params.sort] - Sort criteria (e.g., 'createdAt_desc').
+ * @returns {Promise<object>} An object containing { photos: [], totalPages: N, currentPage: N, totalCount: N }. Photos include populated owner info.
+ */
+export const getFeedRestaurants = async (params = {}) => {
+  const response = await client.get('/api/photos/feed', { params });
+  return response.data;
+};
+
+
+/**
  * Fetch a specific user's publicly shared restaurant records.
  * @param {string} userId - The ID of the user whose public profile is being viewed.
  * @returns {Promise<object>} An object containing { photos: [], user: { displayName, email } }.
@@ -76,4 +91,51 @@ export const deleteRestaurant = async (id) => {
     const response = await client.delete(`/api/photos/${id}`);
     return response.data;
 }
+
+// ======================================================
+// 👇👇👇 댓글 관련 API 함수 추가됨 👇👇👇
+// ======================================================
+
+/**
+ * 맛집 기록에 댓글 추가
+ * @param {string} photoId - 댓글을 추가할 맛집 ID
+ * @param {string} text - 댓글 내용
+ * @returns {Promise<object>} 생성된 댓글 객체 (작성자 정보 포함)
+ */
+export const addComment = async (photoId, text) => {
+    if (!photoId || !text) {
+        throw new Error("맛집 ID와 댓글 내용은 필수입니다.");
+    }
+    const response = await client.post(`/api/photos/${photoId}/comments`, { text });
+    return response.data;
+};
+
+/**
+ * 맛집 기록에서 댓글 삭제
+ * @param {string} photoId - 댓글이 속한 맛집 ID
+ * @param {string} commentId - 삭제할 댓글 ID
+ * @returns {Promise<object>} 성공 메시지 객체
+ */
+export const deleteComment = async (photoId, commentId) => {
+    if (!photoId || !commentId) {
+        throw new Error("맛집 ID와 댓글 ID는 필수입니다.");
+    }
+    const response = await client.delete(`/api/photos/${photoId}/comments/${commentId}`);
+    return response.data;
+};
+
+/**
+ * 맛집 기록의 댓글 수정
+ * @param {string} photoId - 댓글이 속한 맛집 ID
+ * @param {string} commentId - 수정할 댓글 ID
+ * @param {string} text - 수정할 댓글 내용
+ * @returns {Promise<object>} 수정된 댓글 객체 (작성자 정보 포함)
+ */
+export const editComment = async (photoId, commentId, text) => {
+    if (!photoId || !commentId || text === undefined) {
+        throw new Error("맛집 ID, 댓글 ID, 댓글 내용은 필수입니다.");
+    }
+    const response = await client.put(`/api/photos/${photoId}/comments/${commentId}`, { text });
+    return response.data;
+};
 

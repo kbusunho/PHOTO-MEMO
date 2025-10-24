@@ -3,7 +3,7 @@ const router = express.Router();
 const auth = require('../middlewares/auth'); // 로그인 확인 미들웨어
 const upload = require('../middlewares/upload'); // 파일 업로드 미들웨어
 const Photo = require('../models/Photo'); // 맛집 모델
-const User = require('../models/User'); // User 모델 (프로필 정보용)
+const User = require('../models/User'); // User 모델 (프로필 정보 및 댓글 populate 용)
 const mongoose = require('mongoose'); // ObjectId 유효성 검사
 
 /**
@@ -17,11 +17,11 @@ router.get('/', auth, async (req, res) => {
     const {
       page = 1,          // 페이지 번호 (기본 1)
       limit = 12,         // 페이지 당 항목 수 (기본 12)
-      search,           // 검색어
-      sort,             // 정렬 기준
-      tag,              // 태그 필터
-      visited,          // 방문 여부 필터 ('true'/'false')
-      priceRange        // 가격대 필터 ('₩', '₩₩' 등)
+      search,             // 검색어
+      sort,               // 정렬 기준
+      tag,                // 태그 필터
+      visited,            // 방문 여부 필터 ('true'/'false')
+      priceRange          // 가격대 필터 ('₩', '₩₩' 등)
     } = req.query;
 
     // 기본 쿼리: 현재 로그인한 사용자의 맛집만 조회
@@ -30,50 +30,48 @@ router.get('/', auth, async (req, res) => {
     const limitNum = parseInt(limit, 10);
 
     // --- 필터링 조건 추가 ---
-    // 검색어 (이름, 주소, 메모, 태그 대상, 대소문자 구분 없음)
     if (search) {
       const regex = new RegExp(search, 'i');
       query.$or = [
         { name: regex },
-        { 'location.address': regex }, // location 객체 안의 address 필드 검색
+        { 'location.address': regex },
         { memo: regex },
-        { tags: regex } // 배열 필드 검색
+        { tags: regex }
       ];
     }
-    // 태그 필터 (정확히 일치하는 태그 포함)
     if (tag) { query.tags = tag; }
-    // 방문 여부 필터 (문자열 'true'/'false'를 boolean으로 변환)
     if (visited === 'true') { query.visited = true; }
     if (visited === 'false') { query.visited = false; }
-    // 가격대 필터
     if (priceRange) { query.priceRange = priceRange; }
 
     // --- 정렬 조건 설정 ---
     let sortOptions = { createdAt: -1 }; // 기본: 최신순
     switch (sort) {
-      case 'rating_desc': sortOptions = { rating: -1, createdAt: -1 }; break; // 별점 높은 순 (+최신순)
-      case 'rating_asc':  sortOptions = { rating: 1, createdAt: -1 }; break;  // 별점 낮은 순 (+최신순)
-      case 'name_asc':    sortOptions = { name: 1, createdAt: -1 }; break;    // 이름 오름차순 (+최신순)
-      case 'price_asc':   sortOptions = { priceRange: 1, createdAt: -1 }; break; // 가격 낮은 순 (+최신순)
-      case 'price_desc':  sortOptions = { priceRange: -1, createdAt: -1 }; break; // 가격 높은 순 (+최신순)
+      case 'rating_desc': sortOptions = { rating: -1, createdAt: -1 }; break;
+      case 'rating_asc':  sortOptions = { rating: 1, createdAt: -1 }; break;
+      case 'name_asc':    sortOptions = { name: 1, createdAt: -1 }; break;
+      case 'price_asc':   sortOptions = { priceRange: 1, createdAt: -1 }; break;
+      case 'price_desc':  sortOptions = { priceRange: -1, createdAt: -1 }; break;
     }
 
-    // --- 데이터베이스 조회 (페이지네이션 적용) ---
-    const photos = await Photo.find(query) // 필터링 조건 적용
-      .sort(sortOptions)                   // 정렬 적용
-      .skip((pageNum - 1) * limitNum)      // 건너뛸 항목 수 계산 (페이지 시작점)
-      .limit(limitNum);                     // 가져올 항목 수 제한
+    // --- 데이터베이스 조회 (페이지네이션 적용 + 댓글 populate 추가) ---
+    const photos = await Photo.find(query)
+      .sort(sortOptions)
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum)
+      .populate('owner', 'displayName email') // 게시글 작성자 정보
+      .populate('comments.owner', 'displayName email'); // 댓글 작성자 정보
 
     // --- 총 개수 및 페이지 계산 ---
-    const totalCount = await Photo.countDocuments(query); // 필터링된 총 항목 수
-    const totalPages = Math.ceil(totalCount / limitNum); // 총 페이지 수
+    const totalCount = await Photo.countDocuments(query);
+    const totalPages = Math.ceil(totalCount / limitNum);
 
     // --- 응답 전송 ---
     res.status(200).json({
-      photos,           // 현재 페이지의 맛집 목록 배열
-      totalPages,       // 전체 페이지 수
-      currentPage: pageNum, // 현재 페이지 번호
-      totalCount        // 필터링된 총 맛집 개수
+      photos,
+      totalPages,
+      currentPage: pageNum,
+      totalCount
     });
 
   } catch (error) {
@@ -81,6 +79,51 @@ router.get('/', auth, async (req, res) => {
     res.status(500).json({ message: '맛집 기록 조회 중 서버 오류가 발생했습니다.', error: error.message });
   }
 });
+
+/**
+ * @route   GET /api/photos/feed
+ * @desc    모든 사용자의 공개 맛집 목록 조회 (로그인 필요)
+ * @access  Private (User)
+ */
+router.get('/feed', auth, async (req, res) => {
+  try {
+    const {
+        page = 1,
+        limit = 12,
+        sort = 'createdAt_desc'
+    } = req.query;
+
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const query = { isPublic: true }; // 공개된 것만
+
+    let sortOptions = { createdAt: -1 }; // 기본 최신순
+    // if (sort === 'rating_desc') { sortOptions = { rating: -1, createdAt: -1 }; }
+
+    // populate 추가: 게시글 작성자 + 댓글 작성자 정보
+    const feedPhotos = await Photo.find(query)
+      .sort(sortOptions)
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum)
+      .populate('owner', 'displayName email') // 게시글 작성자
+      .populate('comments.owner', 'displayName email'); // 댓글 작성자
+
+    const totalCount = await Photo.countDocuments(query);
+    const totalPages = Math.ceil(totalCount / limitNum);
+
+    res.status(200).json({
+      photos: feedPhotos,
+      totalPages,
+      currentPage: pageNum,
+      totalCount
+    });
+
+  } catch (error) {
+    console.error("공개 피드 조회 오류:", error);
+    res.status(500).json({ message: '공개 피드를 불러오는 중 오류 발생', error: error.message });
+  }
+});
+
 
 /**
  * @route   GET /api/photos/public/:userId
@@ -91,27 +134,25 @@ router.get('/public/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // 요청된 userId 형식 검사 (MongoDB ObjectId 형식)
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: '잘못된 사용자 ID 형식입니다.' });
     }
 
-    // 해당 사용자의 isPublic: true 인 맛집만 조회, 최신순 정렬
-    // populate('owner', 'displayName email') 등을 사용하여 작성자 정보 포함 가능
+    // populate 추가: 댓글 작성자 정보
     const publicPhotos = await Photo.find({
       owner: userId,
       isPublic: true
-    }).sort({ createdAt: -1 });
+    })
+    .sort({ createdAt: -1 })
+    .populate('owner', 'displayName email') // 게시글 작성자 (원래 있었음)
+    .populate('comments.owner', 'displayName email'); // 댓글 작성자
 
-    // 프로필 사용자 정보 조회 (닉네임, 이메일만 선택)
     const profileUser = await User.findById(userId).select('displayName email');
 
-    // 사용자가 존재하지 않을 경우 404 응답
     if (!profileUser) {
         return res.status(404).json({ message: '해당 사용자를 찾을 수 없습니다.' });
     }
 
-    // 응답 전송 (공개 맛집 목록 + 사용자 정보)
     res.status(200).json({ photos: publicPhotos, user: profileUser });
 
   } catch (error) {
@@ -128,64 +169,50 @@ router.get('/public/:userId', async (req, res) => {
  */
 router.post('/', auth, upload.single('image'), async (req, res) => {
   try {
-    // 요청 본문에서 데이터 추출
     const { name, address, rating, memo, tags, visited, isPublic, priceRange } = req.body;
-    // S3에 업로드된 이미지 URL 가져오기 (upload 미들웨어 결과)
     const imageUrl = req.file ? req.file.location : null;
 
-    // 필수 값 검증
     if (!imageUrl) { return res.status(400).json({ message: '이미지 파일은 필수입니다.' }); }
     if (!address) { return res.status(400).json({ message: '주소는 필수입니다.' }); }
-    // rating 값 검증 (숫자이고 1~5 사이인지) - 스키마에서도 검증하지만 여기서 한번 더 체크 가능
     const ratingNum = parseInt(rating, 10);
     if (isNaN(ratingNum) || ratingNum < 1 || ratingNum > 5) {
         return res.status(400).json({ message: '별점은 1에서 5 사이의 숫자여야 합니다.' });
     }
 
-    // 태그 문자열(JSON 형태)을 배열로 변환
     let tagsArray = [];
     if (tags) {
         try {
             const parsedTags = JSON.parse(tags);
-            // 배열인지 확인하고 문자열 배열로 변환
             if (Array.isArray(parsedTags)) {
                 tagsArray = parsedTags.map(tag => String(tag).trim()).filter(tag => tag);
             }
-        } catch (e) {
-            console.error('태그 파싱 오류:', e);
-            // 파싱 실패 시 오류를 반환하거나 무시할 수 있음
-            // return res.status(400).json({ message: '태그 형식이 잘못되었습니다.' });
-        }
+        } catch (e) { console.error('태그 파싱 오류:', e); }
     }
 
-    // 새 Photo 문서 생성
     const newPhoto = new Photo({
       name,
-      location: { address: address }, // location 객체로 저장
+      location: { address: address },
       rating: ratingNum,
       memo,
       imageUrl,
       tags: tagsArray,
-      owner: req.user.id, // 현재 로그인한 사용자 ID
-      visited: visited === 'true', // 문자열 'true' -> boolean true
-      isPublic: isPublic === 'true', // 문자열 'true' -> boolean true
-      priceRange: priceRange || null // 없으면 null
+      owner: req.user.id,
+      visited: visited === 'true',
+      isPublic: isPublic === 'true',
+      priceRange: priceRange || null,
+      comments: [] // 생성 시 빈 댓글 배열 초기화
     });
 
-    // 데이터베이스에 저장
     await newPhoto.save();
-    // 성공 응답 (생성된 문서 반환)
+    // 생성 응답 시 populate 불필요 (댓글 아직 없음)
     res.status(201).json(newPhoto);
 
   } catch (error) {
     console.error("맛집 저장 오류:", error);
-    // Mongoose Validation Error 처리 (스키마 유효성 검사 실패 시)
     if (error.name === 'ValidationError') {
-      // 각 필드의 에러 메시지를 조합하여 반환
       const messages = Object.values(error.errors).map(e => e.message);
       return res.status(400).json({ message: `데이터 검증 실패: ${messages.join(', ')}` });
     }
-    // 기타 서버 오류
     res.status(500).json({ message: '맛집 기록 업로드 중 서버 오류가 발생했습니다.', error: error.message });
   }
 });
@@ -197,72 +224,48 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
  */
 router.put('/:id', auth, upload.single('image'), async (req, res) => {
     try {
-        // 요청 본문과 파라미터에서 데이터 추출
         const { name, address, rating, memo, tags, visited, isPublic, priceRange } = req.body;
         const photoId = req.params.id;
         const userId = req.user.id;
 
-        // 수정할 맛집 기록 찾기 (본인 소유인지 확인 포함)
         const photo = await Photo.findOne({ _id: photoId, owner: userId });
-
-        // 기록이 없거나 권한이 없는 경우 404 응답
         if (!photo) { return res.status(404).json({ message: '수정할 맛집 기록을 찾을 수 없거나 권한이 없습니다.' }); }
 
-        // --- 필드 업데이트 (요청에 해당 필드가 있을 경우에만 업데이트) ---
         if (name !== undefined) photo.name = name;
         if (rating !== undefined) {
              const ratingNum = parseInt(rating, 10);
-             if (!isNaN(ratingNum) && ratingNum >= 1 && ratingNum <= 5) {
-                 photo.rating = ratingNum;
-             }
+             if (!isNaN(ratingNum) && ratingNum >= 1 && ratingNum <= 5) { photo.rating = ratingNum; }
         }
         if (memo !== undefined) photo.memo = memo;
         if (visited !== undefined) photo.visited = visited === 'true';
         if (isPublic !== undefined) photo.isPublic = isPublic === 'true';
         if (priceRange !== undefined) photo.priceRange = priceRange || null;
 
-        // 주소 업데이트 (값이 제공되었고 기존 주소와 다른 경우)
-        if (address !== undefined && address !== photo.location.address) {
-            photo.location.address = address;
-            // 좌표 업데이트 로직은 제거됨
-        }
+        if (address !== undefined && address !== photo.location.address) { photo.location.address = address; }
 
-        // 태그 업데이트
-        if (tags !== undefined) { // tags 필드가 요청에 포함된 경우 (빈 문자열 포함)
-          if (tags === '') {
-              photo.tags = []; // 빈 문자열이면 빈 배열로 설정
-          } else {
+        if (tags !== undefined) {
+          if (tags === '') { photo.tags = []; }
+          else {
               try {
                   const parsedTags = JSON.parse(tags);
-                   if (Array.isArray(parsedTags)) {
-                       photo.tags = parsedTags.map(tag => String(tag).trim()).filter(tag => tag);
-                   }
-              } catch (e) {
-                  console.error('태그 파싱 오류:', e);
-                  // 파싱 실패 시 기존 태그 유지 또는 에러 반환 선택
-              }
+                   if (Array.isArray(parsedTags)) { photo.tags = parsedTags.map(tag => String(tag).trim()).filter(tag => tag); }
+              } catch (e) { console.error('태그 파싱 오류:', e); }
           }
-        } // tags 필드가 아예 없으면 기존 값 유지
-
-        // 이미지 업데이트 (새 파일이 업로드된 경우)
-        if (req.file) {
-            // TODO: 기존 S3 이미지 삭제 로직 추가 (선택 사항)
-            photo.imageUrl = req.file.location;
         }
 
-        // 변경사항 저장
+        if (req.file) { photo.imageUrl = req.file.location; }
+
         const updatedPhoto = await photo.save();
-        // 성공 응답 (수정된 문서 반환)
+        // 수정 응답 시에도 댓글 정보 populate (프론트에서 즉시 반영 위해)
+        await updatedPhoto.populate('comments.owner', 'displayName email');
         res.status(200).json(updatedPhoto);
 
     } catch (error) {
        console.error("맛집 수정 오류:", error);
-       // Mongoose Validation Error 처리
        if (error.name === 'ValidationError') {
          const messages = Object.values(error.errors).map(e => e.message);
          return res.status(400).json({ message: `데이터 검증 실패: ${messages.join(', ')}` });
        }
-       // 기타 서버 오류
        res.status(500).json({ message: '맛집 기록 수정 중 서버 오류가 발생했습니다.', error: error.message });
     }
 });
@@ -278,26 +281,158 @@ router.delete('/:id', auth, async (req, res) => {
     const photoId = req.params.id;
     const userId = req.user.id;
 
-    // 삭제할 맛집 기록 찾아서 삭제 (본인 소유인지 확인 포함)
     const photo = await Photo.findOneAndDelete({ _id: photoId, owner: userId });
+    if (!photo) { return res.status(404).json({ message: '삭제할 맛집 기록을 찾을 수 없거나 권한이 없습니다.' }); }
 
-    // 기록이 없거나 권한이 없는 경우 404 응답
-    if (!photo) {
-      return res.status(404).json({ message: '삭제할 맛집 기록을 찾을 수 없거나 권한이 없습니다.' });
-    }
+    // TODO: S3 이미지 삭제
 
-    // TODO: S3에서 이미지 파일 삭제 로직 추가 (선택 사항)
-    // 예: const { deleteObject } = require("@aws-sdk/client-s3");
-    //     const key = photo.imageUrl.substring(photo.imageUrl.lastIndexOf('/') + 1); // URL에서 키 추출
-    //     await s3.send(new deleteObjectCommand({ Bucket: process.env.S3_BUCKET_NAME, Key: `photos/${key}` }));
-
-    // 성공 응답
     res.status(200).json({ message: '맛집 기록이 성공적으로 삭제되었습니다.' });
   } catch (error) {
     console.error("맛집 삭제 오류:", error);
     res.status(500).json({ message: '맛집 기록 삭제 중 서버 오류가 발생했습니다.', error: error.message });
   }
 });
+
+
+// ======================================================
+// 👇👇👇 댓글 관련 API 👇👇👇
+// ======================================================
+
+/**
+ * @route   POST /api/photos/:photoId/comments
+ * @desc    맛집 기록에 댓글 추가
+ * @access  Private (User)
+ */
+router.post('/:photoId/comments', auth, async (req, res) => {
+    try {
+        const { text } = req.body;
+        const photoId = req.params.photoId;
+        const userId = req.user.id; // 댓글 작성자 ID
+
+        if (!text || text.trim() === '') {
+            return res.status(400).json({ message: '댓글 내용이 필요합니다.' });
+        }
+        if (!mongoose.Types.ObjectId.isValid(photoId)) {
+            return res.status(400).json({ message: '잘못된 맛집 ID 형식입니다.' });
+        }
+
+        const photo = await Photo.findById(photoId);
+        if (!photo) {
+            return res.status(404).json({ message: '댓글을 추가할 맛집 기록을 찾을 수 없습니다.' });
+        }
+
+        // 새 댓글 객체 생성
+        const newComment = {
+            text: text.trim(),
+            owner: userId,
+        };
+
+        // photo 문서의 comments 배열에 새 댓글 추가 (배열 맨 앞에 추가 - 최신 댓글 위로)
+        photo.comments.unshift(newComment);
+        await photo.save(); // 변경사항 저장
+
+        // 저장 후 photo 객체에는 ObjectId만 들어있으므로,
+        // User 모델을 사용하여 작성자 정보를 직접 가져와 합쳐서 반환합니다.
+        const ownerInfo = await User.findById(userId).select('displayName email').lean(); // lean() 추가
+        // 저장된 댓글 객체 (_id 포함) 와 ownerInfo를 합쳐서 응답 생성
+        const populatedComment = {
+            ...photo.comments[0].toObject(), // toObject()로 Mongoose 문서 -> 일반 객체 변환
+            owner: ownerInfo // populate 대신 직접 합침
+        };
+
+        res.status(201).json(populatedComment); // 생성된 댓글 객체 반환
+
+    } catch (error) {
+        console.error("댓글 추가 오류:", error);
+        res.status(500).json({ message: '댓글 추가 중 서버 오류 발생', error: error.message });
+    }
+});
+
+
+/**
+ * @route   DELETE /api/photos/:photoId/comments/:commentId
+ * @desc    맛집 기록에서 특정 댓글 삭제
+ * @access  Private (Comment Owner or Admin - 관리자 삭제 기능은 추가 구현 필요)
+ */
+router.delete('/:photoId/comments/:commentId', auth, async (req, res) => {
+    try {
+        const { photoId, commentId } = req.params;
+        const userId = req.user.id; // 현재 로그인한 사용자 ID
+
+        if (!mongoose.Types.ObjectId.isValid(photoId) || !mongoose.Types.ObjectId.isValid(commentId)) {
+            return res.status(400).json({ message: '잘못된 ID 형식입니다.' });
+        }
+
+        const photo = await Photo.findById(photoId);
+        if (!photo) {
+            return res.status(404).json({ message: '맛집 기록을 찾을 수 없습니다.' });
+        }
+
+        // 삭제할 댓글 찾기
+        const comment = photo.comments.id(commentId); // Mongoose subdocument id 검색
+        if (!comment) {
+            return res.status(404).json({ message: '삭제할 댓글을 찾을 수 없습니다.' });
+        }
+
+        // 댓글 소유권 확인 (본인 댓글만 삭제 가능)
+        // TODO: 관리자도 삭제 가능하게 하려면 여기에 req.user.role === 'admin' 조건 추가
+        if (comment.owner.toString() !== userId) {
+            return res.status(403).json({ message: '댓글을 삭제할 권한이 없습니다.' });
+        }
+
+        // 댓글 삭제 (Mongoose 5.x 이상 pull 사용 방식)
+        photo.comments.pull({ _id: commentId }); // 배열에서 해당 _id를 가진 요소 제거
+        await photo.save(); // 변경사항 저장
+
+        res.status(200).json({ message: '댓글이 삭제되었습니다.' });
+
+    } catch (error) {
+        console.error("댓글 삭제 오류:", error);
+        res.status(500).json({ message: '댓글 삭제 중 서버 오류 발생', error: error.message });
+    }
+});
+
+/**
+ * @route   PUT /api/photos/:photoId/comments/:commentId
+ * @desc    맛집 기록에서 특정 댓글 수정
+ * @access  Private (Comment Owner)
+ */
+router.put('/:photoId/comments/:commentId', auth, async (req, res) => {
+    try {
+        const { text } = req.body; // 수정할 댓글 내용
+        const { photoId, commentId } = req.params;
+        const userId = req.user.id; // 현재 로그인한 사용자 ID
+
+        if (!text || text.trim() === '') {
+            return res.status(400).json({ message: '댓글 내용이 필요합니다.' });
+        }
+        if (!mongoose.Types.ObjectId.isValid(photoId) || !mongoose.Types.ObjectId.isValid(commentId)) {
+            return res.status(400).json({ message: '잘못된 ID 형식입니다.' });
+        }
+
+        // Photo 문서를 찾고, 그 안의 특정 commentId를 가진 댓글을 직접 업데이트 (효율적)
+        const photo = await Photo.findOneAndUpdate(
+            { "_id": photoId, "comments._id": commentId, "comments.owner": userId }, // 조건: 맛집ID, 댓글ID, 댓글 소유자 일치
+            { "$set": { "comments.$.text": text.trim() } }, // 업데이트할 내용: comments 배열 중 조건에 맞는 요소($)의 text 필드
+            { new: true } // 업데이트된 문서 반환
+        ).populate('comments.owner', 'displayName email'); // 업데이트 후 댓글 작성자 정보 포함
+
+        if (!photo) {
+            // photo가 없거나, 댓글이 없거나, 댓글 소유자가 아니면 null 반환됨
+            return res.status(404).json({ message: '수정할 댓글을 찾을 수 없거나 권한이 없습니다.' });
+        }
+
+        // 수정된 댓글 정보 찾기 (photo.comments 배열에서 commentId로 다시 찾기)
+        const updatedComment = photo.comments.find(c => c._id.toString() === commentId);
+
+        res.status(200).json(updatedComment); // 수정된 댓글 객체 반환
+
+    } catch (error) {
+        console.error("댓글 수정 오류:", error);
+        res.status(500).json({ message: '댓글 수정 중 서버 오류 발생', error: error.message });
+    }
+});
+
 
 module.exports = router;
 

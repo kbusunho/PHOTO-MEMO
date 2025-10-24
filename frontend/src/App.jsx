@@ -3,11 +3,12 @@ import { useAuth } from './context/AuthContext';
 import LandingPage from './pages/LandingPage.jsx';
 import HomePage from './pages/HomePage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
+import FeedPage from './pages/FeedPage.jsx'; // FeedPage 임포트
 
 function App() {
   const { user, loading } = useAuth(); // AuthContext에서 사용자 정보와 로딩 상태 가져오기
 
-  // 현재 보여줄 뷰 ('loading', 'landing', 'home', 'profile')와 프로필 ID 상태
+  // 현재 보여줄 뷰 ('loading', 'landing', 'home', 'profile', 'feed')와 프로필 ID 상태
   const [currentView, setCurrentView] = useState('loading');
   const [profileUserId, setProfileUserId] = useState(null);
 
@@ -29,11 +30,16 @@ function App() {
           const userId = hash.substring(7);
           setProfileUserId(userId);
           setCurrentView('profile');
-        } else {
+        } else if (hash === '#/feed') {
+          // 피드 뷰
+          setCurrentView('feed');
+          setProfileUserId(null);
+        }
+         else {
           // 그 외에는 홈 뷰
           setCurrentView('home');
           setProfileUserId(null);
-          // 홈 화면인데 해시가 루트가 아니면 루트로 변경 (뒤로 가기 가능하도록 hash 사용)
+          // 홈 화면인데 해시가 루트가 아니면 루트로 변경 (선택 사항)
           if (hash !== '#/' && hash !== '') {
              window.location.hash = '#/';
           }
@@ -67,13 +73,30 @@ function App() {
 
   // 현재 뷰 상태에 따라 다른 페이지 컴포넌트 렌더링
   const renderView = () => {
+    // 뷰 전환 함수 정의
+    const navigate = (view, userId = null) => {
+        if (view === 'profile' && userId) {
+            window.location.hash = `#/user/${userId}`;
+        } else if (view === 'feed') {
+            window.location.hash = '#/feed';
+        } else { // 'home' or default
+            window.location.hash = '#/';
+        }
+    };
+
     switch (currentView) {
       case 'profile':
-        return <ProfilePage userId={profileUserId} onViewChange={() => window.location.hash = '#/'} />;
+        // ProfilePage에 userId와 뷰 전환(홈/피드) 함수 전달
+        return <ProfilePage userId={profileUserId} onViewChange={navigate} />;
+      case 'feed':
+        // FeedPage에 뷰 전환(홈/프로필) 함수 전달
+        return <FeedPage onViewChange={navigate} />;
       case 'home':
-        return <HomePage onViewChange={(view, userId) => window.location.hash = `#/user/${userId}`} />;
+        // HomePage에 뷰 전환(피드/프로필) 함수 전달
+        return <HomePage onViewChange={navigate} />;
       case 'landing':
       default:
+        // LandingPage 렌더링
         return <LandingPage />;
     }
   };

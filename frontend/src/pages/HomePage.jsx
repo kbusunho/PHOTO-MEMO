@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getRestaurants, uploadRestaurant, updateRestaurant, deleteRestaurant } from '../api/photos.js';
 import { deleteMe } from '../api/users.js';
+// 👇 PasswordChangeModal 임포트 추가
 import PasswordChangeModal from '../components/PasswordChangeModal';
 import RestaurantCard from '../components/RestaurantCard';
 import RestaurantFormModal from '../components/RestaurantFormModal';
@@ -27,9 +28,16 @@ const SearchIcon = () => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
   </svg>
 );
+// 👇 설정(톱니바퀴) 아이콘 추가
 const CogIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
       <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01-.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+    </svg>
+);
+// 탐색(지구본) 아이콘 추가
+const GlobeAltIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.33 6.182a.75.75 0 011.062-.276 5.513 5.513 0 007.216 0 .75.75 0 11.786-1.282A7.013 7.013 0 0110 5.25c-1.385 0-2.684-.39-3.79-.068a.75.75 0 01-.275 1.06zm1.22 6.44a.75.75 0 01.666 1.286A5.513 5.513 0 0010 14.75a5.513 5.513 0 002.784-.812.75.75 0 11.62-1.372 7.013 7.013 0 01-6.808 0zM15 9.75a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM6.5 9.75a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" clipRule="evenodd" />
     </svg>
 );
 
@@ -38,26 +46,27 @@ const PRICE_RANGE_OPTIONS = ['₩', '₩₩', '₩₩₩', '₩₩₩₩'];
 const PRICE_RANGE_LABELS = { '₩': '만원 이하', '₩₩': '1~3만원', '₩₩₩': '3~5만원', '₩₩₩₩': '5만원 이상' };
 
 
-export default function HomePage({ onViewChange }) {
+export default function HomePage({ onViewChange }) { // App.jsx로부터 onViewChange 함수 받음
   const { user, logout, loading: authLoading } = useAuth(); // AuthContext의 로딩 상태 가져오기
 
   // --- 상태 관리 ---
-  const [restaurants, setRestaurants] = useState([]);
+  const [restaurants, setRestaurants] = useState([]); // 맛집 목록
   const [loading, setLoading] = useState(true); // HomePage 데이터 로딩 상태
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingRestaurant, setEditingRestaurant] = useState(null);
-  const [showAdminPanel, setShowAdminPanel] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalRestaurants, setTotalRestaurants] = useState(0);
-  const [searchInput, setSearchInput] = useState('');
-  const [searchParams, setSearchParams] = useState({
-        search: '',
-        sort: 'createdAt_desc',
-        tag: '',
-        visited: undefined,
-        priceRange: '',
-   });
+  const [isModalOpen, setIsModalOpen] = useState(false); // 맛집 추가/수정 모달
+  const [editingRestaurant, setEditingRestaurant] = useState(null); // 수정할 맛집 데이터
+  const [showAdminPanel, setShowAdminPanel] = useState(false); // 관리자 패널 모달
+  const [currentPage, setCurrentPage] = useState(1); // 현재 페이지
+  const [totalPages, setTotalPages] = useState(1); // 총 페이지 수
+  const [totalRestaurants, setTotalRestaurants] = useState(0); // 총 맛집 개수 (필터링된)
+  const [searchInput, setSearchInput] = useState(''); // 검색창 입력값
+  const [searchParams, setSearchParams] = useState({ // API 요청 파라미터
+    search: '',
+    sort: 'createdAt_desc',
+    tag: '',
+    visited: undefined, // undefined: 전체, 'true': 방문, 'false': 위시리스트
+    priceRange: '', // 예: '₩₩'
+  });
+  // 👇 비밀번호 변경 모달 상태 추가
   const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   // --- 데이터 로딩 함수 ---
@@ -282,6 +291,16 @@ export default function HomePage({ onViewChange }) {
             {user && ( // 로그인 상태일 때만 내부 버튼들 렌더링
                 <>
                     <span className="text-gray-500 dark:text-gray-400 text-sm hidden sm:block">{user.displayName || user.email}</span>
+
+                    {/* 탐색(피드) 버튼 */}
+                    <button
+                        onClick={() => onViewChange('feed')} // 클릭 시 App.jsx에 전달된 함수 호출 -> #/feed로 이동
+                        className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                        title="탐색 (다른 사용자 글 보기)"
+                    >
+                        <GlobeAltIcon />
+                    </button>
+
                     {user.role === 'admin' && (
                       <button onClick={handleOpenAdminPanel} className="bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold py-2 px-3 rounded-lg transition-colors flex items-center space-x-1" title="회원 관리">
                         <AdminIcon />

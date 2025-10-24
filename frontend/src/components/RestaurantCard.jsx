@@ -7,7 +7,7 @@ const StarIcon = ({ className }) => (
   </svg>
 );
 
-// 가격대 라벨 (RestaurantFormModal과 동일하게 유지)
+// 가격대 라벨
 const PRICE_RANGE_LABELS = {
   '₩': '만원 이하',
   '₩₩': '1~3만원',
@@ -21,13 +21,14 @@ const PRICE_RANGE_LABELS = {
  * @param {function} onEdit - 수정 버튼 클릭 시 호출될 함수
  * @param {function} onDelete - 삭제 버튼 클릭 시 호출될 함수
  * @param {function} onTagClick - 태그 버튼 클릭 시 호출될 함수
+ * @param {boolean} [showActions=true] - 수정/삭제 버튼 표시 여부 (기본값 true)
+ * @param {React.ReactNode} [ownerInfo] - 카드 하단에 표시할 추가 정보 (예: 작성자 버튼)
  */
-function RestaurantCard({ restaurant, onEdit, onDelete, onTagClick }) {
+function RestaurantCard({ restaurant, onEdit, onDelete, onTagClick, showActions = true, ownerInfo }) {
   // restaurant 객체가 없을 경우 렌더링하지 않음 (오류 방지)
   if (!restaurant) {
     return null;
   }
-
   // location 객체 및 address 확인 (오류 방지)
   const address = restaurant.location?.address || '주소 정보 없음';
 
@@ -83,6 +84,7 @@ function RestaurantCard({ restaurant, onEdit, onDelete, onTagClick }) {
         </p>
 
         {/* 태그 목록 */}
+        {/* 👇 태그 영역에 하단 마진 추가 (mb-4) */}
         {restaurant.tags && restaurant.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-4">
             {restaurant.tags.map((tag) => (
@@ -97,15 +99,21 @@ function RestaurantCard({ restaurant, onEdit, onDelete, onTagClick }) {
           </div>
         )}
 
-        {/* 수정/삭제 버튼 영역 */}
-        <div className="mt-auto flex justify-end space-x-2 pt-4 border-t border-gray-200 dark:border-gray-700/50">
-          <button onClick={() => onEdit(restaurant)} className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white text-xs font-bold py-1.5 px-3 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-indigo-500">
-            수정
-          </button>
-          <button onClick={() => onDelete(restaurant._id)} className="bg-red-700 dark:bg-red-800 hover:bg-red-600 dark:hover:bg-red-700 text-white text-xs font-bold py-1.5 px-3 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-red-500">
-            삭제
-          </button>
-        </div>
+        {/* ownerInfo가 있으면 표시 (작성자 버튼 등) */}
+        {/* 👇 여기에 하단 마진 추가 (mb-4) */}
+        {ownerInfo && <div className="mb-4">{ownerInfo}</div>}
+
+        {/* 👇 showActions가 true일 때만 수정/삭제 버튼 영역 렌더링 */}
+        {showActions && (
+          <div className="mt-auto flex justify-end space-x-2 pt-4 border-t border-gray-200 dark:border-gray-700/50">
+            <button onClick={() => onEdit(restaurant)} className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white text-xs font-bold py-1.5 px-3 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-indigo-500">
+              수정
+            </button>
+            <button onClick={() => onDelete(restaurant._id)} className="bg-red-700 dark:bg-red-800 hover:bg-red-600 dark:hover:bg-red-700 text-white text-xs font-bold py-1.5 px-3 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-red-500">
+              삭제
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
