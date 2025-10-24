@@ -53,8 +53,8 @@ router.get('/', auth, async (req, res) => {
       case 'name_asc':    sortOptions = { name: 1, createdAt: -1 }; break;
       case 'price_asc':   sortOptions = { priceRange: 1, createdAt: -1 }; break;
       case 'price_desc':  sortOptions = { priceRange: -1, createdAt: -1 }; break;
-      case 'visitedDate_desc': sortOptions = { visitedDate: -1, createdAt: -1 }; break; // 방문 날짜 최신순
-      case 'visitedDate_asc':  sortOptions = { visitedDate: 1, createdAt: -1 }; break;  // 방문 날짜 오래된순
+      case 'visitedDate_desc': sortOptions = { visitedDate: -1, createdAt: -1 }; break;
+      case 'visitedDate_asc':  sortOptions = { visitedDate: 1, createdAt: -1 }; break;
       // 'likes_desc'는 아래에서 별도 처리
     }
 
@@ -76,13 +76,13 @@ router.get('/', auth, async (req, res) => {
         // Aggregate 결과는 Mongoose 문서가 아니므로, ID로 다시 조회하여 Mongoose 문서로 변환 (populate 위함)
         const photoIds = aggregatedPhotos.map(p => p._id);
         
-        photos = await Photo.find({ _id: { $in: photoIds } })
-            .sort({ /* Aggregate에서 이미 정렬됨, 필요시 재정렬 */ })
+        // $in 쿼리는 순서를 보장하지 않으므로, populate 후 수동 정렬 필요
+        const populatedPhotos = await Photo.find({ _id: { $in: photoIds } })
             .populate('owner', 'displayName email')
             .populate('comments.owner', 'displayName email');
-
-        // Mongoose 쿼리로 likeCount를 가져올 수 없으므로, 원본 aggregate 결과를 참조하여 정렬 순서 유지
-        photos.sort((a, b) => photoIds.indexOf(a._id) - photoIds.indexOf(b._id));
+        
+        // photoIds 순서대로 정렬
+        photos = photoIds.map(id => populatedPhotos.find(p => p._id.equals(id))).filter(Boolean);
 
     } else {
         // 일반 정렬
@@ -164,10 +164,10 @@ router.get('/feed', auth, async (req, res) => {
 
 /**
  * @route   GET /api/photos/public/:userId
- * @desc    특정 사용자의 공개된 맛집 목록 조회
- * @access  Public
+ * @desc    특정 사용자의 공개된 맛집 목록 조회 (로그인 필요)
+ * @access  Private (User) - 로그인한 사용자기준 '좋아요' 표시 위해 auth 추가
  */
-router.get('/public/:userId', auth, async (req, res) => { // auth 미들웨어 추가 (선택적)
+router.get('/public/:userId', auth, async (req, res) => {
   try {
     const { userId } = req.params;
     if (!mongoose.Types.ObjectId.isValid(userId)) {
@@ -187,7 +187,6 @@ router.get('/public/:userId', auth, async (req, res) => { // auth 미들웨어 �
     // '좋아요' 상태 추가 (로그인한 사용자기준)
     const photosWithLikeStatus = publicPhotos.map(photo => ({
         ...photo.toObject({ virtuals: true }),
-        // req.user는 auth 미들웨어를 통과했으므로 존재
         isLikedByCurrentUser: photo.likes.some(likeUserId => likeUserId.equals(req.user.id)) 
     }));
 
@@ -207,7 +206,6 @@ router.get('/public/:userId', auth, async (req, res) => { // auth 미들웨어 �
  */
 router.post('/', auth, upload.single('image'), async (req, res) => {
   try {
-    // visitedDate 추가
     const { name, address, rating, memo, tags, visited, isPublic, priceRange, visitedDate } = req.body;
     const imageUrl = req.file ? req.file.location : null;
 
@@ -239,13 +237,13 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
       visited: visited === 'true',
       isPublic: isPublic === 'true',
       priceRange: priceRange || null,
-      comments: [], // 생성 시 빈 댓글 배열 초기화
-      likes: [], // likes 배열 초기화
-      visitedDate: visitedDate ? new Date(visitedDate) : null // visitedDate 추가
+      comments: [],
+      likes: [],
+      visitedDate: visitedDate ? new Date(visitedDate) : null
     });
 
     await newPhoto.save();
-    res.status(201).json(newPhoto.toObject({ virtuals: true })); // 가상 필드 포함
+    res.status(201).json(newPhoto.toObject({ virtuals: true }));
 
   } catch (error) {
     console.error("맛집 저장 오류:", error);
@@ -264,7 +262,6 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
  */
 router.put('/:id', auth, upload.single('image'), async (req, res) => {
     try {
-        // visitedDate 추가
         const { name, address, rating, memo, tags, visited, isPublic, priceRange, visitedDate } = req.body;
         const photoId = req.params.id;
         const userId = req.user.id;
@@ -274,38 +271,48 @@ router.put('/:id', auth, upload.single('image'), async (req, res) => {
 
         // --- 필드 업데이트 ---
         if (name !== undefined) photo.name = name;
-        if (rating !== undefined) { /* ... */ }
+        if (rating !== undefined) {
+             const ratingNum = parseInt(rating, 10);
+             if (!isNaN(ratingNum) && ratingNum >= 1 && ratingNum <= 5) { photo.rating = ratingNum; }
+        }
         if (memo !== undefined) photo.memo = memo;
         if (visited !== undefined) photo.visited = visited === 'true';
         if (isPublic !== undefined) photo.isPublic = isPublic === 'true';
         if (priceRange !== undefined) photo.priceRange = priceRange || null;
-        // visitedDate 업데이트
         if (visitedDate !== undefined) {
            photo.visitedDate = visitedDate ? new Date(visitedDate) : null;
         }
-
         if (address !== undefined && address !== photo.location.address) { photo.location.address = address; }
-        if (tags !== undefined) { /* ... 태그 업데이트 로직 ... */ }
+        if (tags !== undefined) {
+          if (tags === '') { photo.tags = []; }
+          else {
+              try {
+                  const parsedTags = JSON.parse(tags);
+                   if (Array.isArray(parsedTags)) { photo.tags = parsedTags.map(tag => String(tag).trim()).filter(tag => tag); }
+              } catch (e) { console.error('태그 파싱 오류:', e); }
+          }
+        }
         if (req.file) { photo.imageUrl = req.file.location; }
 
         const updatedPhoto = await photo.save();
         
-        // populate 실행
         await updatedPhoto.populate([
             { path: 'owner', select: 'displayName email' },
             { path: 'comments.owner', select: 'displayName email' }
         ]);
 
-        // '좋아요' 상태 추가 후 전송
         const photoWithLikeStatus = {
-            ...updatedPhoto.toObject({ virtuals: true }), // 가상 필드 포함
+            ...updatedPhoto.toObject({ virtuals: true }),
             isLikedByCurrentUser: updatedPhoto.likes.some(likeUserId => likeUserId.equals(req.user.id))
         };
         res.status(200).json(photoWithLikeStatus);
 
     } catch (error) {
        console.error("맛집 수정 오류:", error);
-       if (error.name === 'ValidationError') { /* ... */ }
+       if (error.name === 'ValidationError') {
+         const messages = Object.values(error.errors).map(e => e.message);
+         return res.status(400).json({ message: `데이터 검증 실패: ${messages.join(', ')}` });
+       }
        res.status(500).json({ message: '맛집 기록 수정 중 서버 오류가 발생했습니다.', error: error.message });
     }
 });
@@ -325,8 +332,7 @@ router.delete('/:id', auth, async (req, res) => {
     if (!photo) { return res.status(404).json({ message: '삭제할 맛집 기록을 찾을 수 없거나 권한이 없습니다.' }); }
 
     // TODO: S3 이미지 삭제
-    // TODO: 관련된 신고(Report) 내역 삭제 (선택 사항)
-    await Report.deleteMany({ targetPhotoId: photoId });
+    await Report.deleteMany({ targetPhotoId: photoId }); // 관련 신고 내역 삭제
 
     res.status(200).json({ message: '맛집 기록이 성공적으로 삭제되었습니다.' });
   } catch (error) {
@@ -339,10 +345,9 @@ router.delete('/:id', auth, async (req, res) => {
 // ======================================================
 // 👇👇👇 좋아요 관련 API 👇👇👇
 // ======================================================
-
 /**
  * @route   POST /api/photos/:photoId/like
- * @desc    맛집 기록에 '좋아요' 추가 (토글 방식)
+ * @desc    맛집 기록에 '좋아요' 추가/취소 (토글)
  * @access  Private (User)
  */
 router.post('/:photoId/like', auth, async (req, res) => {
@@ -359,17 +364,16 @@ router.post('/:photoId/like', auth, async (req, res) => {
             return res.status(404).json({ message: '좋아요할 맛집 기록을 찾을 수 없습니다.' });
         }
 
-        // 이미 '좋아요'를 눌렀는지 확인
         const likeIndex = photo.likes.findIndex(likeUserId => likeUserId.equals(userId));
-
         let isLikedByCurrentUser;
+
         if (likeIndex > -1) {
             // 이미 눌렀으면 -> 좋아요 취소 ($pull)
             photo.likes.pull(userId);
             isLikedByCurrentUser = false;
         } else {
-            // 누르지 않았으면 -> 좋아요 추가 ($addToSet)
-            photo.likes.push(userId); // $addToSet 효과 (중복 방지)
+            // 누르지 않았으면 -> 좋아요 추가 ($addToSet 방식)
+            photo.likes.push(userId);
             isLikedByCurrentUser = true;
         }
 
@@ -402,22 +406,40 @@ router.post('/:photoId/comments', auth, async (req, res) => {
         const photoId = req.params.photoId;
         const userId = req.user.id;
 
-        if (!text || text.trim() === '') { /* ... */ }
-        if (!mongoose.Types.ObjectId.isValid(photoId)) { /* ... */ }
+        if (!text || text.trim() === '') {
+            return res.status(400).json({ message: '댓글 내용이 필요합니다.' });
+        }
+        if (!mongoose.Types.ObjectId.isValid(photoId)) {
+            return res.status(400).json({ message: '잘못된 맛집 ID 형식입니다.' });
+        }
 
         const photo = await Photo.findById(photoId);
-        if (!photo) { /* ... */ }
+        if (!photo) {
+            return res.status(404).json({ message: '댓글을 추가할 맛집 기록을 찾을 수 없습니다.' });
+        }
 
-        const newComment = { text: text.trim(), owner: userId };
+        const newComment = {
+            text: text.trim(),
+            owner: userId,
+        };
+
         photo.comments.unshift(newComment); // 맨 앞에 추가
         await photo.save();
 
+        // ** (오류 수정) **
         // 저장된 댓글(배열의 첫번째 요소) 가져오기
         const savedComment = photo.comments[0];
         // 댓글 작성자 정보 populate
-        const populatedComment = await savedComment.populate('owner', 'displayName email');
+        // lean()을 사용하여 Mongoose 문서가 아닌 일반 JS 객체로 가져옴
+        const ownerInfo = await User.findById(userId).select('displayName email').lean(); 
+        
+        // Mongoose 문서를 일반 객체로 변환하고 owner 정보 수동 할당
+        const populatedComment = {
+            ...savedComment.toObject(),
+            owner: ownerInfo 
+        };
 
-        res.status(201).json(populatedComment); // toObject() 안해도 populate 결과는 잘 나옴
+        res.status(201).json(populatedComment);
 
     } catch (error) {
         console.error("댓글 추가 오류:", error);
@@ -437,24 +459,28 @@ router.delete('/:photoId/comments/:commentId', auth, async (req, res) => {
         const userId = req.user.id;
         const userRole = req.user.role; // 관리자 확인용
 
-        if (!mongoose.Types.ObjectId.isValid(photoId) || !mongoose.Types.ObjectId.isValid(commentId)) { /* ... */ }
+        if (!mongoose.Types.ObjectId.isValid(photoId) || !mongoose.Types.ObjectId.isValid(commentId)) {
+             return res.status(400).json({ message: '잘못된 ID 형식입니다.' });
+        }
 
         const photo = await Photo.findById(photoId);
-        if (!photo) { /* ... */ }
+        if (!photo) {
+            return res.status(404).json({ message: '맛집 기록을 찾을 수 없습니다.' });
+        }
 
         const comment = photo.comments.id(commentId);
-        if (!comment) { /* ... */ }
+        if (!comment) {
+            return res.status(404).json({ message: '삭제할 댓글을 찾을 수 없습니다.' });
+        }
 
         // 권한 확인 (본인이거나 관리자)
         if (comment.owner.toString() !== userId && userRole !== 'admin') {
             return res.status(403).json({ message: '댓글을 삭제할 권한이 없습니다.' });
         }
 
-        // 댓글 삭제
         photo.comments.pull({ _id: commentId });
         await photo.save();
         
-        // 해당 댓글 관련 신고 내역도 삭제 (선택 사항)
         await Report.deleteMany({ targetType: 'Comment', targetId: commentId });
 
         res.status(200).json({ message: '댓글이 삭제되었습니다.' });
@@ -476,13 +502,22 @@ router.put('/:photoId/comments/:commentId', auth, async (req, res) => {
         const { photoId, commentId } = req.params;
         const userId = req.user.id;
 
-        if (!text || text.trim() === '') { /* ... */ }
-        if (!mongoose.Types.ObjectId.isValid(photoId) || !mongoose.Types.ObjectId.isValid(commentId)) { /* ... */ }
+        if (!text || text.trim() === '') {
+            return res.status(400).json({ message: '댓글 내용이 필요합니다.' });
+        }
+        if (!mongoose.Types.ObjectId.isValid(photoId) || !mongoose.Types.ObjectId.isValid(commentId)) {
+            return res.status(400).json({ message: '잘못된 ID 형식입니다.' });
+        }
 
         // Mongoose 쿼리를 사용하여 댓글 직접 수정 (더 효율적)
         const updatedPhoto = await Photo.findOneAndUpdate(
             { "_id": photoId, "comments._id": commentId, "comments.owner": userId },
-            { "$set": { "comments.$.text": text.trim(), "comments.$.updatedAt": new Date() } }, // 수정 시간도 갱신
+            { 
+                "$set": { 
+                    "comments.$.text": text.trim(),
+                    "comments.$.updatedAt": new Date() // 수정 시간 갱신 (스키마에 updatedAt이 있다면)
+                }
+            },
             { new: true } // 업데이트된 문서 반환
         ).populate('comments.owner', 'displayName email');
 
