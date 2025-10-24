@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { format } from 'date-fns'; // 날짜 포맷을 위해 import
 
 // 가격대 옵션 및 라벨 (백엔드 모델과 일치)
 const PRICE_RANGE_OPTIONS = ['₩', '₩₩', '₩₩₩', '₩₩₩₩'];
@@ -7,6 +8,29 @@ const PRICE_RANGE_LABELS = {
   '₩₩': '1~3만원',
   '₩₩₩': '3~5만원',
   '₩₩₩₩': '5만원 이상',
+};
+
+/**
+ * 날짜 객체나 문자열을 'YYYY-MM-DD' 형식으로 변환 (input[type="date"]용)
+ * @param {Date | string} date - 날짜 객체 또는 ISO 문자열
+ * @returns {string} 'YYYY-MM-DD' 형식의 문자열, 유효하지 않으면 빈 문자열
+ */
+const formatDateForInput = (date) => {
+    if (!date) return '';
+    try {
+        // new Date()로 유효한 날짜 객체 생성 시도
+        const d = new Date(date);
+        // 유효한 날짜인지 확인 (Invalid Date)
+        if (isNaN(d.getTime())) return '';
+        // 'YYYY-MM-DD' 형식으로 반환 (UTC 기준이 아닌 로컬 시간 기준)
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    } catch (e) {
+        console.error("날짜 포맷 변환 실패:", e);
+        return '';
+    }
 };
 
 /**
@@ -23,9 +47,11 @@ function RestaurantFormModal({ restaurant, onClose, onSave }) {
     rating: restaurant?.rating || 3,
     memo: restaurant?.memo || '',
     tags: restaurant?.tags?.join(', ') || '',
-    visited: restaurant ? String(restaurant.visited) : 'true', // visited 상태 추가 (문자열 'true'/'false')
-    isPublic: restaurant ? String(restaurant.isPublic) : 'false', // isPublic 상태 추가 (문자열 'true'/'false')
-    priceRange: restaurant?.priceRange || '', // priceRange 상태 추가
+    visited: restaurant ? String(restaurant.visited) : 'true', // visited 상태 (문자열 'true'/'false')
+    isPublic: restaurant ? String(restaurant.isPublic) : 'false', // isPublic 상태 (문자열 'true'/'false')
+    priceRange: restaurant?.priceRange || '', // priceRange 상태
+    // 👇 visitedDate 상태 추가 (YYYY-MM-DD 형식으로 포맷)
+    visitedDate: restaurant?.visitedDate ? formatDateForInput(restaurant.visitedDate) : '',
   });
   const [imageFile, setImageFile] = useState(null); // 이미지 파일 상태
   const [imagePreview, setImagePreview] = useState(restaurant?.imageUrl || null); // 이미지 미리보기 URL 상태
@@ -34,16 +60,29 @@ function RestaurantFormModal({ restaurant, onClose, onSave }) {
   // 입력값 변경 핸들러
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    // 라디오 버튼(visited, isPublic)은 value를 그대로 사용
-    if (name === 'visited' || name === 'isPublic') {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    } else {
-      // 그 외 필드는 type에 따라 처리 (별점은 숫자, 나머지는 문자열)
-      setFormData(prev => ({
-          ...prev,
-          [name]: type === 'checkbox' ? checked : (name === 'rating' ? parseInt(value) : value)
-      }));
-    }
+    
+    setFormData(prev => {
+        const newFormData = { ...prev };
+        
+        // 라디오 버튼(visited, isPublic) 처리
+        if (name === 'visited' || name === 'isPublic') {
+            newFormData[name] = value;
+            // '가고 싶은 곳'을 선택하면 방문 날짜 초기화 (선택적)
+            if (name === 'visited' && value === 'false') {
+                newFormData.visitedDate = '';
+            }
+        } 
+        // 그 외 필드 (text, date, range 등)
+        else if (type === 'checkbox') {
+             newFormData[name] = checked;
+        } else if (name === 'rating') {
+             newFormData[name] = parseInt(value, 10);
+        } else {
+             newFormData[name] = value;
+        }
+        
+        return newFormData;
+    });
   };
 
   // 이미지 파일 변경 핸들러
@@ -107,15 +146,15 @@ function RestaurantFormModal({ restaurant, onClose, onSave }) {
             <form id="restaurant-form" onSubmit={handleSubmit} className="space-y-4">
               {/* 이름 */}
               <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">맛집 이름 *</label>
-                  <input id="name" type="text" name="name" value={formData.name} onChange={handleChange} placeholder="맛집 이름" required
-                      className="w-full p-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <label htmlFor="name" className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">맛집 이름 *</label>
+                <input id="name" type="text" name="name" value={formData.name} onChange={handleChange} placeholder="맛집 이름" required
+                       className="w-full p-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
               {/* 주소 */}
               <div>
-                  <label htmlFor="address" className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">주소 *</label>
-                  <input id="address" type="text" name="address" value={formData.address} onChange={handleChange} placeholder="위치 (예: 서울 강남구)" required
-                      className="w-full p-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <label htmlFor="address" className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">주소 *</label>
+                <input id="address" type="text" name="address" value={formData.address} onChange={handleChange} placeholder="위치 (예: 서울 강남구)" required
+                       className="w-full p-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
               {/* 별점 */}
               <div>
@@ -127,15 +166,15 @@ function RestaurantFormModal({ restaurant, onClose, onSave }) {
               </div>
               {/* 메모 */}
                <div>
-                   <label htmlFor="memo" className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">메모</label>
-                  <textarea id="memo" name="memo" value={formData.memo} onChange={handleChange} placeholder="나만의 메모..." rows="3"
-                      className="w-full p-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                  <label htmlFor="memo" className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">메모</label>
+                <textarea id="memo" name="memo" value={formData.memo} onChange={handleChange} placeholder="나만의 메모..." rows="3"
+                       className="w-full p-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
               </div>
               {/* 태그 */}
               <div>
                 <label htmlFor="tags" className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">태그</label>
                 <input id="tags" type="text" name="tags" value={formData.tags} onChange={handleChange} placeholder="예: 강남, 파스타, 데이트 (쉼표로 구분)"
-                    className="w-full p-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                       className="w-full p-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
               {/* 방문 여부 */}
               <div>
@@ -151,11 +190,21 @@ function RestaurantFormModal({ restaurant, onClose, onSave }) {
                   </label>
                 </div>
               </div>
+              
+              {/* 👇 방문 날짜 (방문 완료 'true' 선택 시에만 보임) 👇 */}
+              {formData.visited === 'true' && (
+                <div>
+                  <label htmlFor="visitedDate" className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">방문 날짜 (선택)</label>
+                  <input id="visitedDate" type="date" name="visitedDate" value={formData.visitedDate} onChange={handleChange}
+                         className="w-full p-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none" />
+                </div>
+              )}
+
               {/* 가격대 */}
               <div>
-                  <label htmlFor="priceRange" className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">가격대</label>
+                  <label htmlFor="priceRange" className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">가격대 (선택)</label>
                   <select id="priceRange" name="priceRange" value={formData.priceRange} onChange={handleChange}
-                      className="w-full p-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none">
+                          className="w-full p-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none">
                     <option value="">-- 가격대 선택 --</option>
                     {PRICE_RANGE_OPTIONS.map(option => (
                       <option key={option} value={option}>{option} ({PRICE_RANGE_LABELS[option]})</option>
@@ -178,9 +227,9 @@ function RestaurantFormModal({ restaurant, onClose, onSave }) {
               </div>
               {/* 사진 */}
               <div>
-                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">사진 {restaurant ? '(선택)' : '*'} </label>
+                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">사진 {restaurant ? '(변경 시 선택)' : '*'} </label>
                   <input type="file" onChange={handleImageChange} accept="image/*" required={!restaurant}
-                      className="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 dark:file:bg-indigo-800 file:text-indigo-700 dark:file:text-indigo-200 hover:file:bg-indigo-100 dark:hover:file:bg-indigo-700 cursor-pointer" />
+                         className="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 dark:file:bg-indigo-800 file:text-indigo-700 dark:file:text-indigo-200 hover:file:bg-indigo-100 dark:hover:file:bg-indigo-700 cursor-pointer" />
               </div>
             </form>
         </div>
@@ -188,8 +237,8 @@ function RestaurantFormModal({ restaurant, onClose, onSave }) {
         {/* 저장 버튼 영역 */}
         <div className="flex justify-end pt-6 flex-shrink-0 border-t border-gray-200 dark:border-gray-700 mt-6">
           <button form="restaurant-form" type="submit" disabled={loading}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-              {loading ? '저장 중...' : '저장'}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                  {loading ? '저장 중...' : '저장'}
           </button>
         </div>
 

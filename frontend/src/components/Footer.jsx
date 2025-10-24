@@ -19,7 +19,7 @@ function Footer() {
   const currentYear = new Date().getFullYear();
 
   // 사용자 정보 및 링크
-  const creatorName = "개발자:최선호";
+  const creatorName = "개발자:최선호 / 문의는 아래 참고";
   const email = "happysun0142@gmail.com";
   const phone = "010-4694-1136";
   const githubLink = "https://github.com/kbusunho/PHOTO-MEMO/tree/main";

@@ -1,7 +1,16 @@
 import React, { useState } from 'react';
-import { addComment, deleteComment, editComment } from '../api/photos'; // editComment API 함수 임포트
+// editComment API 함수 임포트
+import { addComment, deleteComment, editComment } from '../api/photos';
 import { useAuth } from '../context/AuthContext'; // 현재 사용자 정보 확인
 import toast from 'react-hot-toast'; // 알림 라이브러리
+
+// (신규) 신고 깃발 아이콘
+const FlagIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+      <path fillRule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 00-1 1v5a1 1 0 11-2 0V6z" clipRule="evenodd" />
+    </svg>
+);
+
 
 /**
  * 댓글 섹션 컴포넌트
@@ -10,8 +19,9 @@ import toast from 'react-hot-toast'; // 알림 라이브러리
  * @param {function} [onCommentAdded] - 댓글 추가 성공 시 호출될 콜백 (옵션)
  * @param {function} [onCommentDeleted] - 댓글 삭제 성공 시 호출될 콜백 (옵션)
  * @param {function} [onCommentUpdated] - 댓글 수정 성공 시 호출될 콜백 (옵션)
+ * @param {function} [onReportComment] - 댓글 신고 버튼 클릭 시 호출될 콜백 (옵션)
  */
-function CommentSection({ photoId, initialComments = [], onCommentAdded, onCommentDeleted, onCommentUpdated }) {
+function CommentSection({ photoId, initialComments = [], onCommentAdded, onCommentDeleted, onCommentUpdated, onReportComment }) {
   const { user: currentUser } = useAuth(); // 현재 로그인한 사용자 정보
   const [comments, setComments] = useState(initialComments || []); // 댓글 목록 상태 (null 방지)
   const [newComment, setNewComment] = useState(''); // 새 댓글 입력 상태
@@ -197,12 +207,24 @@ function CommentSection({ photoId, initialComments = [], onCommentAdded, onComme
               {/* 시간 및 관리 버튼 */}
               <div className="flex-shrink-0 flex items-center space-x-2 text-gray-400 dark:text-gray-500 text-xs pt-0.5">
                  <span>{formatTimeAgo(comment.createdAt)}</span>
-                {/* 👇👇👇 ID 비교 수정: currentUser.id -> currentUser._id 👇👇👇 */}
+                
+                {/* 본인 댓글일 때: 수정/삭제 (수정 중 아닐 때) */}
                 {currentUser && comment.owner?._id === currentUser._id && editingCommentId !== comment._id && (
                     <>
                        <button onClick={() => handleEditClick(comment)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" title="댓글 수정">수정</button>
                        <button onClick={() => handleDeleteComment(comment._id)} className="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors" title="댓글 삭제">삭제</button>
                     </>
+                )}
+                
+                {/* 다른 사람 댓글일 때: 신고 (onReportComment prop이 있을 때만) */}
+                {currentUser && comment.owner?._id !== currentUser._id && onReportComment && (
+                    <button
+                        onClick={() => onReportComment(comment._id)}
+                        className="text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                        title="댓글 신고하기"
+                    >
+                        <FlagIcon />
+                    </button>
                 )}
               </div>
             </div>

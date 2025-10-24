@@ -51,7 +51,7 @@ export const getPublicRestaurants = async (userId) => {
  * Upload a new restaurant record using FormData.
  * @param {FormData} formData - Must contain required fields: name, address, rating, image.
  * Optional fields: memo, tags (JSON stringified array), visited (string 'true'/'false'),
- * isPublic (string 'true'/'false'), priceRange.
+ * isPublic (string 'true'/'false'), priceRange, visitedDate.
  * @returns {Promise<object>} The newly created restaurant object from the backend.
  */
 export const uploadRestaurant = async (formData) => {
@@ -66,7 +66,7 @@ export const uploadRestaurant = async (formData) => {
  * Update an existing restaurant record using FormData.
  * @param {string} id - The ID of the restaurant record to update.
  * @param {FormData} formData - Contains the fields to update. Image is optional.
- * Fields: name, address, rating, memo, tags(JSON), visited(string), isPublic(string), priceRange, image (optional).
+ * Fields: name, address, rating, memo, tags(JSON), visited(string), isPublic(string), priceRange, visitedDate, image (optional).
  * @returns {Promise<object>} The updated restaurant object from the backend.
  */
 export const updateRestaurant = async (id, formData) => {
@@ -93,7 +93,7 @@ export const deleteRestaurant = async (id) => {
 }
 
 // ======================================================
-// 👇👇👇 댓글 관련 API 함수 추가됨 👇👇👇
+// 👇👇👇 댓글 관련 API 함수 👇👇👇
 // ======================================================
 
 /**
@@ -136,6 +136,40 @@ export const editComment = async (photoId, commentId, text) => {
         throw new Error("맛집 ID, 댓글 ID, 댓글 내용은 필수입니다.");
     }
     const response = await client.put(`/api/photos/${photoId}/comments/${commentId}`, { text });
+    return response.data;
+};
+
+// ======================================================
+// 👇👇👇 1. 좋아요 API 함수 추가됨 👇👇👇
+// ======================================================
+/**
+ * 맛집 기록 '좋아요' 토글 (추가/취소)
+ * @param {string} photoId - '좋아요' 할 맛집 ID
+ * @returns {Promise<object>} { likeCount: N, isLikedByCurrentUser: boolean }
+ */
+export const toggleLike = async (photoId) => {
+    if (!photoId) {
+        throw new Error("맛집 ID는 필수입니다.");
+    }
+    // 백엔드에서 POST /:photoId/like가 토글 로직을 담당
+    const response = await client.post(`/api/photos/${photoId}/like`);
+    return response.data;
+};
+
+// ======================================================
+// 👇👇👇 2. 신고 API 함수 추가됨 👇👇👇
+// ======================================================
+/**
+ * 맛집 기록 또는 댓글 신고
+ * @param {object} reportData - { targetType, targetId, targetPhotoId, reason }
+ * @returns {Promise<object>} { message: '...' }
+ */
+export const reportContent = async (reportData) => {
+    const { targetType, targetId, targetPhotoId, reason } = reportData;
+    if (!targetType || !targetId || !targetPhotoId || !reason) {
+        throw new Error('신고 정보가 올바르지 않습니다.');
+    }
+    const response = await client.post('/api/photos/report', reportData);
     return response.data;
 };
 
