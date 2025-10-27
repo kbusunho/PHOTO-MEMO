@@ -6,6 +6,7 @@ import Pagination from './Pagination';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 
+// (신규) 신고 대상 링크를 생성하는 헬퍼 컴포넌트
 const ReportTargetLink = ({ report, onViewProfile }) => {
   const photoOwnerId = report.targetPhotoId?.owner?._id || report.targetPhotoId?.owner;
   const linkBase = `/#/user/${photoOwnerId}`;
@@ -41,23 +42,29 @@ const ReportTargetLink = ({ report, onViewProfile }) => {
 
 
 function AdminPanel({ currentUser, onClose, onViewProfile }) {
+  // --- 공통 상태 ---
   const [loadingStats, setLoadingStats] = useState(true);
   const [stats, setStats] = useState({ totalUsers: 0, todayUsers: 0, totalPhotos: 0, todayDeletedUsers: 0, pendingReports: 0 });
-  const [view, setView] = useState('members');
+  const [view, setView] = useState('members'); // 'members' 또는 'reports'
   
+  // --- 회원 관리 상태 ---
   const [users, setUsers] = useState([]);
-  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(false); // 회원목록 로딩
   const [userError, setUserError] = useState(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false); // 👈 모달 열림/닫힘 상태
+  const [editingUser, setEditingUser] = useState(null); // 👈 수정할 사용자 정보
 
+  // --- 신고 관리 상태 ---
   const [reports, setReports] = useState([]);
-  const [loadingReports, setLoadingReports] = useState(false);
+  const [loadingReports, setLoadingReports] = useState(false); // 신고목록 로딩
   const [reportError, setReportError] = useState(null);
   const [reportPage, setReportPage] = useState(1);
   const [reportTotalPages, setReportTotalPages] = useState(1);
-  const [reportStatusFilter, setReportStatusFilter] = useState('Pending');
+  const [reportStatusFilter, setReportStatusFilter] = useState('Pending'); // 'Pending', 'Resolved', 'Dismissed'
 
+  // --- 데이터 로딩 ---
+  
+  // 1. 통계 로드
   const fetchStats = useCallback(async () => {
       setLoadingStats(true);
       try {
@@ -81,6 +88,7 @@ function AdminPanel({ currentUser, onClose, onViewProfile }) {
     fetchStats();
   }, [fetchStats]);
 
+  // 2. 회원 목록 로드
   const fetchUsers = useCallback(async () => {
     setLoadingUsers(true);
     setUserError(null);
@@ -95,6 +103,7 @@ function AdminPanel({ currentUser, onClose, onViewProfile }) {
     }
   }, []);
 
+  // 3. 신고 목록 로드
   const fetchReports = useCallback(async () => {
     setLoadingReports(true);
     setReportError(null);
@@ -110,6 +119,7 @@ function AdminPanel({ currentUser, onClose, onViewProfile }) {
     }
   }, [reportStatusFilter, reportPage]);
 
+  // 4. 탭 변경 시 해당 탭 데이터 로드
   useEffect(() => {
     if (view === 'members') {
       fetchUsers();
@@ -118,8 +128,19 @@ function AdminPanel({ currentUser, onClose, onViewProfile }) {
     }
   }, [view, fetchUsers, fetchReports]);
 
-  const handleOpenEditModal = (user) => setEditingUser(user);
-  const handleCloseEditModal = () => setEditingUser(null);
+  // --- 회원 관리 핸들러 ---
+  
+  // 👇👇👇 === 여기가 수정되었습니다! === 👇👇👇
+  const handleOpenEditModal = (user) => {
+    setEditingUser(user); // 1. 수정할 사용자 정보 설정
+    setIsEditModalOpen(true); // 2. 모달 열기 상태로 변경
+  };
+  // 👆👆👆 === 여기까지 수정 === 👆👆👆
+
+  const handleCloseEditModal = () => {
+      setEditingUser(null);
+      setIsEditModalOpen(false); // 모달 닫기
+  };
   const handleUserUpdated = (updatedUser) => {
     setUsers(users.map(u => (u._id === updatedUser._id ? updatedUser : u)));
     if (updatedUser._id === currentUser.id) {
@@ -163,6 +184,7 @@ function AdminPanel({ currentUser, onClose, onViewProfile }) {
     }
   };
   
+  // --- 신고 관리 핸들러 ---
   const handleReportFilterChange = (status) => {
     setReportStatusFilter(status);
     setReportPage(1);
@@ -194,6 +216,7 @@ function AdminPanel({ currentUser, onClose, onViewProfile }) {
   };
 
 
+  // --- JSX 렌더링 ---
   return (
     <>
       <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-30 p-4">
@@ -201,6 +224,7 @@ function AdminPanel({ currentUser, onClose, onViewProfile }) {
           <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
           <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">관리자 패널</h2>
 
+          {/* 통계 대시보드 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mb-6">
             <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg text-center">
               <div className="text-sm text-gray-600 dark:text-gray-400">총 회원</div>
@@ -224,6 +248,7 @@ function AdminPanel({ currentUser, onClose, onViewProfile }) {
             </div>
           </div>
           
+          {/* 탭 버튼 */}
           <div className="border-b border-gray-200 dark:border-gray-700 mb-4">
               <nav className="-mb-px flex space-x-6">
                   <button
@@ -254,8 +279,10 @@ function AdminPanel({ currentUser, onClose, onViewProfile }) {
               </nav>
           </div>
 
+          {/* 탭 컨텐츠 (스크롤 영역) */}
           <div className="overflow-y-auto flex-grow -mx-6 sm:-mx-8 px-6 sm:px-8">
             
+            {/* 회원 관리 탭 */}
             {view === 'members' && (
               <>
                 {loadingUsers && <p className="text-gray-500 dark:text-gray-400 text-center py-4">회원 목록 로딩 중...</p>}
@@ -297,12 +324,12 @@ function AdminPanel({ currentUser, onClose, onViewProfile }) {
                               </button>
                               <button 
                                 onClick={() => handleOpenEditModal(user)} 
-                                className="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white text-xs font-bold py-1 px-3 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-indigo-500" // 👇 text-gray-800 (수정 버튼 글자색)
+                                className="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white text-xs font-bold py-1 px-3 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-indigo-500"
                                 title="사용자 정보 수정"
                               >
                                 수정
                               </button>
-                              <button onClick={() => handleDeleteUser(user)} className="bg-red-700 dark:bg-red-800 hover:bg-red-600 dark:hover:bg-red-700 text-white text-xs font-bold py-1 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-red-500" disabled={user._id === currentUser.id} title="사용자 삭제"> 추방 </button>
+                              <button onClick={() => handleDeleteUser(user)} className="bg-red-700 dark:bg-red-800 hover:bg-red-600 dark:hover:bg-red-700 text-white text-xs font-bold py-1 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-red-500" disabled={user._id === currentUser.id} title="사용자 삭제"> 탈퇴 </button>
                             </td>
                           </tr>
                         ))}
@@ -313,6 +340,7 @@ function AdminPanel({ currentUser, onClose, onViewProfile }) {
               </>
             )}
 
+            {/* 신고 관리 탭 */}
             {view === 'reports' && (
               <div>
                 <div className="flex space-x-2 mb-4">
@@ -362,6 +390,7 @@ function AdminPanel({ currentUser, onClose, onViewProfile }) {
                         ))}
                     </div>
                 )}
+                {/* 신고 목록 페이지네이션 */}
                 {!loadingReports && reportTotalPages > 1 && (
                     <Pagination currentPage={reportPage} totalPages={reportTotalPages} onPageChange={handleReportPageChange} />
                 )}
@@ -369,12 +398,14 @@ function AdminPanel({ currentUser, onClose, onViewProfile }) {
             )}
           </div>
           
+          {/* 애니메이션 스타일 */}
           <style>{`
             @keyframes fade-in-up {
               from { opacity: 0; transform: translateY(20px); }
               to { opacity: 1; transform: translateY(0); }
             }
             .animate-fade-in-up { animation: fade-in-up 0.3s ease-out forwards; }
+            /* 테이블 스크롤바 디자인 */
             .overflow-y-auto::-webkit-scrollbar { width: 6px; }
             .overflow-y-auto::-webkit-scrollbar-track { background: transparent; }
             .overflow-y-auto::-webkit-scrollbar-thumb { background-color: rgba(156, 163, 175, 0.5); border-radius: 20px; border: 3px solid transparent; background-clip: content-box; }
@@ -383,11 +414,12 @@ function AdminPanel({ currentUser, onClose, onViewProfile }) {
         </div>
       </div>
       
+      {/* 수정 모달 (조건부 렌더링) */}
       {isEditModalOpen && editingUser && (
         <UserEditModal
           user={editingUser}
           onClose={handleCloseEditModal}
-          onUserUpdated={handleUserUpdated}
+          onUserUpdated={handleUserUpdated} // 수정 성공 시 콜백 전달
         />
       )}
     </>
