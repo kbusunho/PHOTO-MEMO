@@ -9,8 +9,8 @@ import toast from 'react-hot-toast';
  * @param {string} targetType - 'Photo' 또는 'Comment'
  */
 function ReportModal({ isOpen, onClose, onSubmit, targetType }) {
-  const [reason, setReason] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [reason, setReason] = useState(''); // 신고 사유 입력 상태
+  const [loading, setLoading] = useState(false); // 제출 로딩 상태
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -20,28 +20,37 @@ function ReportModal({ isOpen, onClose, onSubmit, targetType }) {
     }
     setLoading(true);
     try {
+      // onSubmit은 HomePage/FeedPage의 handleReportSubmit을 호출
+      // 성공/실패 토스트는 부모 컴포넌트의 toast.promise가 처리
       await onSubmit(reason);
-      // 성공 시 부모(HomePage)에서 모달 닫기 및 토스트 처리
+      // 성공 시 부모가 onClose를 호출하여 모달 닫음
     } catch (error) {
-      // 실패 시 부모(HomePage)에서 토스트 처리
+      // 실패 시에도 부모가 토스트 처리
+      console.error("신고 제출 중 에러 (모달)", error);
     } finally {
       setLoading(false);
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen) return null; // 모달이 열려있지 않으면 렌더링 안 함
 
   const title = targetType === 'Photo' ? '게시물 신고' : '댓글 신고';
 
   return (
+    // 모달 배경 (z-50: 최상단)
     <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-50 p-4">
+      {/* 모달 컨텐츠 */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-lg relative animate-fade-in-up">
+        {/* 닫기 버튼 */}
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
-        <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">{title}</h2>
+        {/* 모달 제목 (👇 text-xl sm:text-2xl 로 수정) */}
+        <h2 className="text-xl sm:text-2xl font-bold mb-6 text-gray-900 dark:text-white">{title}</h2>
 
+        {/* 신고 폼 */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="reason" className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+            {/* 👇 break-words 추가 */}
+            <label htmlFor="reason" className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 break-words">
               신고 사유를 구체적으로 작성해주세요.
             </label>
             <textarea
@@ -54,14 +63,16 @@ function ReportModal({ isOpen, onClose, onSubmit, targetType }) {
               className="w-full p-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
               required
               maxLength={500}
+              disabled={loading} // 로딩 중 비활성화
             />
           </div>
 
+          {/* 제출 버튼 */}
           <div className="flex justify-end pt-4">
             <button
               type="submit"
               className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg transition-colors disabled:opacity-50"
-              disabled={loading || !reason.trim()}
+              disabled={loading || !reason.trim()} // 로딩 중이거나 내용 없으면 비활성화
             >
               {loading ? '접수 중...' : '신고 접수'}
             </button>
@@ -83,3 +94,4 @@ function ReportModal({ isOpen, onClose, onSubmit, targetType }) {
 }
 
 export default ReportModal;
+
