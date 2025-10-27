@@ -29,7 +29,7 @@ function Footer() {
 
   return (
     <footer className="bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto py-6 px-4">
-      {/* 👇 container 안에 flex 레이아웃 적용 */}
+      {/* container 안에 flex 레이아웃 적용 */}
       <div className="container mx-auto text-gray-600 dark:text-gray-400 text-sm 
                     flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
 
@@ -38,10 +38,22 @@ function Footer() {
           {/* 만든 사람 정보 */}
           <div>
             <p className="font-semibold">{creatorName}</p>
-            <p>
-              Email: <a href={`mailto:${email}`} className="hover:text-indigo-600 dark:hover:text-indigo-400">{email}</a> | 
-              Phone: <span className="select-all">{phone}</span>
-            </p>
+            
+            {/* 👇 1. <p> 태그를 <div>로 변경하고, 자식 요소들을 block 또는 inline-block으로 처리 */}
+            <div className="flex flex-col sm:flex-row sm:space-x-2 justify-center md:justify-start">
+              {/* 이메일 (break-all로 강제 줄바꿈) */}
+              <span className="break-all">
+                Email: <a href={`mailto:${email}`} className="hover:text-indigo-600 dark:hover:text-indigo-400">{email}</a>
+              </span>
+              {/* 구분자 (모바일에서 숨김) */}
+              <span className="hidden sm:inline">|</span> 
+              {/* 전화번호 (줄바꿈 안 함) */}
+              <span className="whitespace-nowrap">
+                Phone: <span className="select-all">{phone}</span>
+              </span>
+            </div>
+            {/* 👆 여기까지 수정 */}
+
           </div>
           {/* 관련 소셜 링크 */}
           <div className="flex items-center space-x-3">
