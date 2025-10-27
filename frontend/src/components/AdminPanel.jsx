@@ -302,7 +302,7 @@ function AdminPanel({ currentUser, onClose, onViewProfile }) {
                               >
                                 수정
                               </button>
-                              <button onClick={() => handleDeleteUser(user)} className="bg-red-700 dark:bg-red-800 hover:bg-red-600 dark:hover:bg-red-700 text-white text-xs font-bold py-1 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-red-500" disabled={user._id === currentUser.id} title="사용자 삭제"> 삭제 </button>
+                              <button onClick={() => handleDeleteUser(user)} className="bg-red-700 dark:bg-red-800 hover:bg-red-600 dark:hover:bg-red-700 text-white text-xs font-bold py-1 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-red-500" disabled={user._id === currentUser.id} title="사용자 삭제"> 추방 </button>
                             </td>
                           </tr>
                         ))}
