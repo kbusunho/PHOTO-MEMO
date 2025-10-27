@@ -1,67 +1,89 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middlewares/auth'); // Middleware for authentication
-const admin = require('../middlewares/admin'); // Middleware for admin authorization
-const User = require('../models/User'); // User model
-const Photo = require('../models/Photo'); // Photo model (for deleting related data)
-const mongoose = require('mongoose'); // For ObjectId validation (though not strictly needed here)
+const auth = require('../middlewares/auth'); // 로그인 확인 미들웨어
+const admin = require('../middlewares/admin'); // 관리자 확인 미들웨어
+const User = require('../models/User'); // User 모델
+const Photo = require('../models/Photo'); // Photo 모델 (관련 데이터 삭제용)
+const Report = require('../models/Report'); // Report 모델 (관련 데이터 삭제용)
+const mongoose = require('mongoose'); // ObjectId 유효성 검사
 
 /**
  * @route   GET /api/users
- * @desc    Get all users (Admin only)
+ * @desc    모든 사용자 목록 조회 (관리자 전용)
  * @access  Private (Admin)
  */
 router.get('/', [auth, admin], async (req, res) => {
   try {
-    // Find all users, exclude password hash, sort by creation date (newest first)
+    // 비밀번호 해시 제외하고 모든 필드 조회
     const users = await User.find().select('-passwordHash').sort({ createdAt: -1 });
     res.status(200).json(users);
   } catch (error) {
-    console.error("Error fetching user list:", error);
-    res.status(500).json({ message: 'Failed to retrieve user list', error: error.message });
+    console.error("사용자 목록 조회 오류:", error);
+    res.status(500).json({ message: '사용자 목록 조회 중 서버 오류가 발생했습니다.', error: error.message });
   }
 });
 
 /**
  * @route   DELETE /api/users/me
- * @desc    Delete logged-in user's own account (Withdrawal)
- * @access  Private (User - owner only)
+ * @desc    로그인한 사용자 본인 계정 삭제 (회원 탈퇴)
+ * @access  Private (User - 본인만 가능)
  */
 router.delete('/me', auth, async (req, res) => {
-    try {
-      const userIdToDelete = req.user.id; // Get user ID from auth middleware
+  try {
+    const userIdToDelete = req.user.id; // auth 미들웨어에서 넣어준 로그인 사용자 ID
 
-      // Optional: Prevent deletion if the user is the last active admin
-      const user = await User.findById(userIdToDelete);
-      if (!user) {
-          return res.status(404).json({ message: 'User not found.' });
-      }
-      if (user.role === 'admin') {
-        // Count only *active* admins
-        const activeAdminCount = await User.countDocuments({ role: 'admin', isActive: true });
-        if (activeAdminCount <= 1) {
-          return res.status(400).json({ message: 'The last active admin account cannot be deleted. Please assign another admin first or contact support.' });
-        }
-      }
-
-      // 1. Delete all restaurant records (photos) owned by this user
-      await Photo.deleteMany({ owner: userIdToDelete });
-
-      // 2. Delete the user account itself
-      await User.findByIdAndDelete(userIdToDelete);
-
-      // 3. Send success message (client should handle logout and redirect)
-      res.status(200).json({ message: 'Account and all related data successfully deleted.' });
-    } catch (error) {
-      console.error("Error deleting own account:", error);
-      res.status(500).json({ message: 'Failed to delete account due to a server error.', error: error.message });
+    // 1. 사용자 정보 확인 (관리자인지 등)
+    const user = await User.findById(userIdToDelete);
+    if (!user) {
+        return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
     }
-  });
+    // 2. 마지막 관리자인 경우 탈퇴 방지
+    if (user.role === 'admin') {
+      const activeAdminCount = await User.countDocuments({ role: 'admin', isActive: true });
+      if (activeAdminCount <= 1) {
+        return res.status(400).json({ message: '유일한 활성 관리자 계정은 탈퇴할 수 없습니다. 다른 관리자를 먼저 지정해주세요.' });
+      }
+    }
+    
+    // --- 회원 탈퇴 시 모든 데이터 정리 ---
+    // 3. 이 사용자가 소유한 Photo ID 목록 찾기 (신고 내역 삭제에 필요)
+    const userPhotos = await Photo.find({ owner: userIdToDelete }).select('_id');
+    const userPhotoIds = userPhotos.map(p => p._id);
+    
+    // 4. 이 사용자의 Photo와 관련된 모든 신고 삭제 (대상, 신고자 무관)
+    await Report.deleteMany({ targetPhotoId: { $in: userPhotoIds } });
+    
+    // 5. 이 사용자가 작성한 모든 신고 삭제
+    await Report.deleteMany({ reporter: userIdToDelete });
+    
+    // 6. 다른 사람 게시물에 이 사용자가 남긴 댓글 삭제
+    await Photo.updateMany(
+        { "comments.owner": userIdToDelete },
+        { $pull: { comments: { owner: userIdToDelete } } }
+    );
+    
+    // 7. 다른 사람 게시물에 이 사용자가 누른 좋아요 삭제
+    await Photo.updateMany(
+        { likes: userIdToDelete },
+        { $pull: { likes: userIdToDelete } }
+    );
+    
+    // 8. 이 사용자가 소유한 모든 Photo 삭제
+    await Photo.deleteMany({ owner: userIdToDelete });
+    
+    // 9. 사용자 계정 삭제
+    await User.findByIdAndDelete(userIdToDelete);
 
+    res.status(200).json({ message: '회원 탈퇴가 성공적으로 처리되었습니다. 모든 데이터가 삭제되었습니다.' });
+  } catch (error) {
+    console.error("회원 탈퇴 오류:", error);
+    res.status(500).json({ message: '회원 탈퇴 중 서버 오류가 발생했습니다.', error: error.message });
+  }
+});
 
 /**
  * @route   DELETE /api/users/:id
- * @desc    Delete a specific user (Admin only)
+ * @desc    특정 사용자 삭제 (관리자 전용)
  * @access  Private (Admin)
  */
 router.delete('/:id', [auth, admin], async (req, res) => {
@@ -69,101 +91,111 @@ router.delete('/:id', [auth, admin], async (req, res) => {
     const userIdToDelete = req.params.id;
     const adminUserId = req.user.id; // ID of the admin performing the action
 
-    // Prevent admin from deleting themselves using this specific route (use /me instead)
+    // 관리자 본인 삭제 방지
     if (userIdToDelete === adminUserId) {
-      return res.status(400).json({ message: 'Admin accounts cannot delete themselves using this route. Please use the account withdrawal feature if intended.' });
+      return res.status(400).json({ message: '관리자 계정은 스스로 삭제할 수 없습니다. (본인 탈퇴는 /me 경로 이용)' });
     }
 
-    // Find the user to delete
+    // 삭제할 사용자 찾기
     const user = await User.findById(userIdToDelete);
     if (!user) {
-      return res.status(404).json({ message: 'User to delete not found.' });
+      return res.status(404).json({ message: '삭제할 사용자를 찾을 수 없습니다.' });
     }
 
-    // Delete all restaurant records (photos) owned by this user
+    // --- 관리자가 사용자를 삭제할 때도 모든 데이터를 정리합니다 (회원 탈퇴 로직과 동일) ---
+    // 1. 이 사용자가 소유한 Photo ID 목록 찾기
+    const userPhotos = await Photo.find({ owner: userIdToDelete }).select('_id');
+    const userPhotoIds = userPhotos.map(p => p._id);
+    
+    // 2. 이 사용자의 Photo와 관련된 모든 신고 삭제
+    await Report.deleteMany({ targetPhotoId: { $in: userPhotoIds } });
+    
+    // 3. 이 사용자가 작성한 모든 신고 삭제
+    await Report.deleteMany({ reporter: userIdToDelete });
+    
+    // 4. 다른 사람 게시물에 이 사용자가 남긴 댓글 삭제
+    await Photo.updateMany(
+        { "comments.owner": userIdToDelete },
+        { $pull: { comments: { owner: userIdToDelete } } }
+    );
+    
+    // 5. 다른 사람 게시물에 이 사용자가 누른 좋아요 삭제
+    await Photo.updateMany(
+        { likes: userIdToDelete },
+        { $pull: { likes: userIdToDelete } }
+    );
+    
+    // 6. 이 사용자가 소유한 모든 Photo 삭제
     await Photo.deleteMany({ owner: userIdToDelete });
-
-    // Delete the user account
+    
+    // 7. 사용자 계정 삭제
     await User.findByIdAndDelete(userIdToDelete);
 
-    res.status(200).json({ message: 'User and their associated data successfully deleted.' });
+    res.status(200).json({ message: '사용자가 성공적으로 삭제되었습니다. (관련 데이터 포함)' });
   } catch (error) {
-    console.error("Error deleting user (admin):", error);
-    res.status(500).json({ message: 'Failed to delete user due to a server error.', error: error.message });
+    console.error("사용자 삭제 오류 (관리자):", error);
+    res.status(500).json({ message: '사용자 삭제 중 서버 오류가 발생했습니다.', error: error.message });
   }
 });
 
 /**
  * @route   PUT /api/users/:id
- * @desc    Update a specific user's info (Admin only - displayName, role, isActive)
+ * @desc    특정 사용자 정보 수정 (관리자 전용 - 닉네임, 권한, 상태)
  * @access  Private (Admin)
  */
 router.put('/:id', [auth, admin], async (req, res) => {
   try {
-    // Fields that can be updated by admin
     const { displayName, role, isActive } = req.body;
     const userIdToEdit = req.params.id;
     const adminUserId = req.user.id;
 
-    // Find the user to edit
+    // 수정할 사용자 찾기
     const user = await User.findById(userIdToEdit);
-    if (!user) {
-      return res.status(404).json({ message: 'User to edit not found.' });
+    if (!user) { return res.status(404).json({ message: '수정할 사용자를 찾을 수 없습니다.' }); }
+
+    // 유일한 활성 관리자 권한 변경/비활성화 방지
+    if (user.role === 'admin') { // 수정 대상이 관리자인 경우
+      const activeAdminCount = await User.countDocuments({ role: 'admin', isActive: true });
+      
+      // 권한을 'user'로 변경 시도
+      if (role && role !== 'admin') {
+          if (activeAdminCount <= 1 && user.isActive) { // 마지막 활성 관리자면
+              return res.status(400).json({ message: '유일한 활성 관리자 계정의 권한은 변경할 수 없습니다.' });
+          }
+      }
+      // '비활성' 상태로 변경 시도
+      const requestedIsActive = (isActive === true || isActive === 'true');
+      if (isActive !== undefined && !requestedIsActive) { // 비활성화 시도
+          if (activeAdminCount <= 1 && user.isActive) { // 마지막 활성 관리자면
+               return res.status(400).json({ message: '유일한 활성 관리자 계정은 비활성화할 수 없습니다.' });
+          }
+      }
     }
 
-    // Prevent changing role or deactivating the last *active* admin
-    if (user.role === 'admin') { // Check only if the target user is currently an admin
-        const activeAdminCount = await User.countDocuments({ role: 'admin', isActive: true });
-        // Trying to change role FROM admin OR trying to deactivate
-        if (role && role !== 'admin') {
-             if (activeAdminCount <= 1 && user.isActive) { // Only prevent if they are the last ACTIVE admin
-                 return res.status(400).json({ message: 'Cannot change the role of the last active admin.' });
-             }
-        }
-        const requestedIsActive = (isActive === true || isActive === 'true');
-        if (isActive !== undefined && !requestedIsActive) { // Trying to deactivate
-             if (activeAdminCount <= 1 && user.isActive) { // Only prevent if they are the last ACTIVE admin
-                 return res.status(400).json({ message: 'Cannot deactivate the last active admin.' });
-             }
-        }
-    }
-
-
-    // Update fields if provided in the request body
+    // 필드 업데이트
     if (displayName !== undefined) {
-        user.displayName = displayName.trim(); // Trim whitespace
+        user.displayName = displayName.trim();
     }
     if (role && ['user', 'admin'].includes(role)) {
-        // Prevent self-demotion if they are the only admin (redundant check, but safe)
-        if (userIdToEdit === adminUserId && user.role === 'admin' && role === 'user') {
-            const adminCount = await User.countDocuments({ role: 'admin', isActive: true });
-            if (adminCount <= 1) {
-                 return res.status(400).json({ message: 'Cannot demote the last active admin.' });
-            }
-        }
         user.role = role;
     }
-    // Update isActive (convert string 'true'/'false' to boolean)
     if (isActive !== undefined) {
         user.isActive = (isActive === true || isActive === 'true');
     }
 
-    // Save changes to the database
     await user.save();
-    // Return updated user info (excluding password hash via toSafeJSON method)
     res.status(200).json(user.toSafeJSON());
 
   } catch (error) {
-    // Handle Mongoose Validation errors (e.g., if schema constraints are violated)
     if (error.name === 'ValidationError') {
         const messages = Object.values(error.errors).map(e => e.message);
-        return res.status(400).json({ message: `Update failed: ${messages.join(', ')}` });
+        return res.status(400).json({ message: `수정 실패: ${messages.join(', ')}` });
     }
-    console.error("Error updating user info (admin):", error);
-    res.status(500).json({ message: 'Failed to update user information due to a server error.', error: error.message });
+    console.error("사용자 정보 수정 오류 (관리자):", error);
+    res.status(500).json({ message: '사용자 정보 수정 중 서버 오류가 발생했습니다.', error: error.message });
   }
 });
 
 
-module.exports = router; // Export the router instance
+module.exports = router;
 
