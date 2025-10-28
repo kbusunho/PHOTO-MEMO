@@ -3,21 +3,30 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    
-    <!-- 👇 1. 모바일 뷰포트 설정 (필수) -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
-    <!-- 👇 2. PWA 메타 태그 (iOS 및 테마 색상) -->
+    <!-- PWA 및 테마 설정 -->
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="apple-touch-icon" href="/pwa-192x192.png" />
+    <!-- (PWA 플러그인이 이 파일을 자동으로 생성/연결합니다) -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    
+    <!-- 👇 1. 기존 'apple-' 태그 (오래된 iOS용) -->
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="맛집로그">
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#1f2937" media="(prefers-color-scheme: dark)">
+    <!-- 👇 2. 브라우저가 추천하는 새 'mobile-' 태그 (표준) -->
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <!-- Spoqa Han Sans Neo 폰트 (Pretendard로 변경 권장) -->
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     
-    <!-- (vite-plugin-pwa가 자동으로 manifest 링크를 주입해줍니다) -->
-    
-    <link rel="stylesheet" as="style" crossorigin href="[https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css](https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css)" />
     <title>맛집 포토로그</title>
+
+    <!-- 카카오맵 SDK (API 키는 .env 등으로 관리하는 것이 좋습니다) -->
+    <script 
+      type="text/javascript" 
+      src="//dapi.kakao.com/v2/maps/sdk.js?appkey=YOUR_KAKAO_JAVASCRIPT_KEY&libraries=services"
+    ></script>
+    
   </head>
   <body>
     <div id="root"></div>

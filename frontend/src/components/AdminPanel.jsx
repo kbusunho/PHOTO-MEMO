@@ -130,7 +130,7 @@ function AdminPanel({ currentUser, onClose, onViewProfile }) {
 
   // --- 회원 관리 핸들러 ---
   
-  // 👇👇👇 === 여기가 수정되었습니다! === 👇👇👇
+  // 👇👇👇 === 여기가 수정되었습니다! (수정이 안눌리는 버그 수정) === 👇👇👇
   const handleOpenEditModal = (user) => {
     setEditingUser(user); // 1. 수정할 사용자 정보 설정
     setIsEditModalOpen(true); // 2. 모달 열기 상태로 변경
@@ -220,31 +220,32 @@ function AdminPanel({ currentUser, onClose, onViewProfile }) {
   return (
     <>
       <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-30 p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-7xl relative animate-fade-in-up max-h-[90vh] flex flex-col">
+        {/* 모바일 화면에서는 p-4, sm 이상에서는 p-6 sm:p-8 */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-4 sm:p-8 w-full max-w-7xl relative animate-fade-in-up max-h-[90vh] flex flex-col">
           <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
           <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">관리자 패널</h2>
 
-          {/* 통계 대시보드 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-            <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg text-center">
-              <div className="text-sm text-gray-600 dark:text-gray-400">총 회원</div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">{loadingStats ? '...' : stats.totalUsers}</div>
+          {/* 통계 대시보드 (모바일 반응형 수정) */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-4 mb-6">
+            <div className="bg-gray-100 dark:bg-gray-700 p-3 sm:p-4 rounded-lg text-center">
+              <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">총 회원</div>
+              <div className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">{loadingStats ? '...' : stats.totalUsers}</div>
             </div>
-            <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg text-center">
-              <div className="text-sm text-gray-600 dark:text-gray-400">오늘 가입</div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">{loadingStats ? '...' : stats.todayUsers}</div>
+            <div className="bg-gray-100 dark:bg-gray-700 p-3 sm:p-4 rounded-lg text-center">
+              <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">오늘 가입</div>
+              <div className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">{loadingStats ? '...' : stats.todayUsers}</div>
             </div>
-            <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg text-center">
-              <div className="text-sm text-gray-600 dark:text-gray-400">오늘 탈퇴</div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">{loadingStats ? '...' : (stats.todayDeletedUsers || 0)}</div>
+            <div className="bg-gray-100 dark:bg-gray-700 p-3 sm:p-4 rounded-lg text-center">
+              <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">오늘 탈퇴</div>
+              <div className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">{loadingStats ? '...' : (stats.todayDeletedUsers || 0)}</div>
             </div>
-            <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg text-center">
-              <div className="text-sm text-gray-600 dark:text-gray-400">총 맛집</div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">{loadingStats ? '...' : stats.totalPhotos}</div>
+            <div className="bg-gray-100 dark:bg-gray-700 p-3 sm:p-4 rounded-lg text-center">
+              <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">총 맛집</div>
+              <div className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">{loadingStats ? '...' : stats.totalPhotos}</div>
             </div>
-            <div className="bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700 p-4 rounded-lg text-center">
-              <div className="text-sm text-red-600 dark:text-red-300">대기중 신고</div>
-              <div className="text-2xl font-bold text-red-700 dark:text-red-200">{loadingStats ? '...' : stats.pendingReports}</div>
+            <div className="bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700 p-3 sm:p-4 rounded-lg text-center col-span-2 sm:col-span-1">
+              <div className="text-xs sm:text-sm text-red-600 dark:text-red-300">대기중 신고</div>
+              <div className="text-lg md:text-2xl font-bold text-red-700 dark:text-red-200">{loadingStats ? '...' : stats.pendingReports}</div>
             </div>
           </div>
           
@@ -280,7 +281,7 @@ function AdminPanel({ currentUser, onClose, onViewProfile }) {
           </div>
 
           {/* 탭 컨텐츠 (스크롤 영역) */}
-          <div className="overflow-y-auto flex-grow -mx-6 sm:-mx-8 px-6 sm:px-8">
+          <div className="overflow-y-auto flex-grow -mx-4 sm:-mx-8 px-4 sm:px-8">
             
             {/* 회원 관리 탭 */}
             {view === 'members' && (
@@ -288,48 +289,46 @@ function AdminPanel({ currentUser, onClose, onViewProfile }) {
                 {loadingUsers && <p className="text-gray-500 dark:text-gray-400 text-center py-4">회원 목록 로딩 중...</p>}
                 {userError && <p className="text-red-500 text-center py-4">{userError}</p>}
                 {!loadingUsers && !userError && (
-                  <div className="align-middle inline-block min-w-full shadow overflow-hidden sm:rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="align-middle inline-block min-w-full shadow overflow-x-auto sm:rounded-lg border border-gray-200 dark:border-gray-700">
                     <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                       <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0 z-10">
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">이메일</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">닉네임</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">전화번호</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">권한</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">상태</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">가입일</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">관리</th>
+                          <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">이메일</th>
+                          <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">닉네임</th>
+                          <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">전화번호</th>
+                          <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">권한</th>
+                          <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">상태</th>
+                          <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">가입일</th>
+                          <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">관리</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                         {users.map((user) => (
                           <tr key={user._id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                            <td className="px-4 py-4 whitespace-nowrap text-sm">
-                              <button onClick={() => onViewProfile(user._id)} className="text-indigo-600 dark:text-indigo-400 hover:underline focus:outline-none" title={`${user.email} 공개 프로필 보기`}>
+                            <td className="px-2 sm:px-4 py-4 whitespace-nowrap text-sm">
+                              <button onClick={() => onViewProfile(user._id)} className="text-indigo-600 dark:text-indigo-400 hover:underline focus:outline-none truncate max-w-[150px] sm:max-w-none" title={`${user.email} 공개 프로필 보기`}>
                                 {user.email}
                               </button>
                             </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{user.displayName || 'N/A'}</td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{user.phoneNumber || '-'}</td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm">
+                            <td className="px-2 sm:px-4 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{user.displayName || 'N/A'}</td>
+                            <td className="px-2 sm:px-4 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{user.phoneNumber || '-'}</td>
+                            <td className="px-2 sm:px-4 py-4 whitespace-nowrap text-sm">
                               {user.role === 'admin' ? ( <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-100">Admin</span> ) : ( <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-100">User</span> )}
                             </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm">
+                            <td className="px-2 sm:px-4 py-4 whitespace-nowrap text-sm">
                               {user.isActive ? ( <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-100">활성</span> ) : ( <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100">비활성</span> )}
                             </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{new Date(user.createdAt).toLocaleDateString()}</td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm space-x-2">
-                              <button onClick={() => handleToggleActive(user)} disabled={user._id === currentUser.id && user.role === 'admin' && users.filter(u=>u.role==='admin' && u.isActive).length <= 1 && user.isActive} className={`text-xs font-bold py-1 px-3 rounded-md transition-colors ${ user.isActive ? 'bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-800' : 'bg-green-600 hover:bg-green-700' } text-white disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-yellow-500`} title={user.isActive ? '계정 비활성화' : '계정 활성화'}>
+                            <td className="px-2 sm:px-4 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{new Date(user.createdAt).toLocaleDateString()}</td>
+                            <td className="px-2 sm:px-4 py-4 whitespace-nowrap text-sm space-y-1 sm:space-y-0 sm:space-x-2">
+                              <button onClick={() => handleToggleActive(user)} disabled={user._id === currentUser.id && user.role === 'admin' && users.filter(u=>u.role==='admin' && u.isActive).length <= 1 && user.isActive} className={`w-full sm:w-auto text-xs font-bold py-1 px-3 rounded-md transition-colors ${ user.isActive ? 'bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-800' : 'bg-green-600 hover:bg-green-700' } text-white disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none ...`} title={user.isActive ? '계정 비활성화' : '계정 활성화'}>
                                 {user.isActive ? '비활성' : '활성'}
                               </button>
-                              <button 
-                                onClick={() => handleOpenEditModal(user)} 
-                                className="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white text-xs font-bold py-1 px-3 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-indigo-500"
-                                title="사용자 정보 수정"
-                              >
+                              <button onClick={() => handleOpenEditModal(user)} className="w-full sm:w-auto bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white text-xs font-bold py-1 px-3 rounded-md transition-colors focus:outline-none ..." title="사용자 정보 수정">
                                 수정
                               </button>
-                              <button onClick={() => handleDeleteUser(user)} className="bg-red-700 dark:bg-red-800 hover:bg-red-600 dark:hover:bg-red-700 text-white text-xs font-bold py-1 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-red-500" disabled={user._id === currentUser.id} title="사용자 삭제"> 탈퇴 </button>
+                              <button onClick={() => handleDeleteUser(user)} className="w-full sm:w-auto bg-red-700 dark:bg-red-800 hover:bg-red-600 dark:hover:bg-red-700 text-white text-xs font-bold py-1 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none ..." disabled={user._id === currentUser.id} title="사용자 삭제">
+                                삭제
+                              </button>
                             </td>
                           </tr>
                         ))}
@@ -344,53 +343,41 @@ function AdminPanel({ currentUser, onClose, onViewProfile }) {
             {view === 'reports' && (
               <div>
                 <div className="flex space-x-2 mb-4">
-                  <button onClick={() => handleReportFilterChange('Pending')} className={`text-xs font-medium py-1 px-3 rounded-full transition-colors ${reportStatusFilter === 'Pending' ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'}`}>대기중 ({stats.pendingReports})</button>
-                  <button onClick={() => handleReportFilterChange('Resolved')} className={`text-xs font-medium py-1 px-3 rounded-full transition-colors ${reportStatusFilter === 'Resolved' ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'}`}>처리됨</button>
-                  <button onClick={() => handleReportFilterChange('Dismissed')} className={`text-xs font-medium py-1 px-3 rounded-full transition-colors ${reportStatusFilter === 'Dismissed' ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'}`}>기각됨</button>
+                  <button onClick={() => handleReportFilterChange('Pending')} className={`text-xs font-medium py-1 px-3 rounded-full transition-colors ${reportStatusFilter === 'Pending' ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-gray-700 ...'}`}>대기중 ({stats.pendingReports})</button>
+                  <button onClick={() => handleReportFilterChange('Resolved')} className={`text-xs font-medium py-1 px-3 rounded-full transition-colors ${reportStatusFilter === 'Resolved' ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-gray-700 ...'}`}>처리됨</button>
+                  <button onClick={() => handleReportFilterChange('Dismissed')} className={`text-xs font-medium py-1 px-3 rounded-full transition-colors ${reportStatusFilter === 'Dismissed' ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-gray-700 ...'}`}>기각됨</button>
                 </div>
                 
-                {loadingReports && <p className="text-center text-gray-500 dark:text-gray-400 py-4">신고 목록 로딩 중...</p>}
-                {reportError && <p className="text-center text-red-500 py-4">{reportError}</p>}
+                {loadingReports && <p className="text-center ...">신고 목록 로딩 중...</p>}
+                {reportError && <p className="text-center ...">{reportError}</p>}
                 {!loadingReports && !reportError && reports.length === 0 && (
-                    <p className="text-center text-gray-500 dark:text-gray-400 py-4">해당 상태의 신고 내역이 없습니다.</p>
+                    <p className="text-center ...">해당 상태의 신고 내역이 없습니다.</p>
                 )}
                 {!loadingReports && !reportError && reports.length > 0 && (
                     <div className="space-y-4">
                         {reports.map(report => (
                             <div key={report._id} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg flex flex-col sm:flex-row sm:items-start sm:justify-between border border-gray-200 dark:border-gray-600">
                                 <div className="flex-grow mb-3 sm:mb-0 sm:pr-4 overflow-hidden">
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        <strong>신고자:</strong> {report.reporter?.displayName || report.reporter?.email || '알 수 없음'}
-                                        <span className="ml-2">({format(new Date(report.createdAt), 'yyyy.MM.dd HH:mm')})</span>
-                                    </p>
-                                    <p className="font-semibold text-gray-800 dark:text-gray-200 my-1 break-words">
-                                        <strong>사유:</strong> {report.reason}
-                                    </p>
-                                    <p className="text-sm text-gray-600 dark:text-gray-300 truncate">
-                                        <strong>대상:</strong> <ReportTargetLink report={report} onViewProfile={onViewProfile} />
-                                    </p>
+                                    <p className="text-sm ..."><strong>신고자:</strong> {report.reporter?.displayName || '...'} ...</p>
+                                    <p className="font-semibold ..."><strong>사유:</strong> {report.reason}</p>
+                                    <p className="text-sm ..."><strong>대상:</strong> <ReportTargetLink report={report} onViewProfile={onViewProfile} /></p>
                                 </div>
                                 {report.status === 'Pending' && (
-                                    <div className="flex-shrink-0 flex sm:flex-col gap-2">
-                                        <button onClick={() => handleReportAction(report, 'Resolved')} className="text-xs bg-green-600 hover:bg-green-700 text-white py-1 px-3 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-green-500">처리 완료</button>
-                                        <button onClick={() => handleReportAction(report, 'Dismissed')} className="text-xs bg-gray-500 hover:bg-gray-600 text-white py-1 px-3 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-gray-400">기각</button>
+                                    <div className="flex-shrink-0 flex flex-row sm:flex-col gap-2"> {/* 👇 flex-row sm:flex-col (모바일에선 가로) */}
+                                        <button onClick={() => handleReportAction(report, 'Resolved')} className="text-xs flex-1 sm:flex-none ...">처리 완료</button>
+                                        <button onClick={() => handleReportAction(report, 'Dismissed')} className="text-xs flex-1 sm:flex-none ...">기각</button>
                                     </div>
                                 )}
                                 {report.status !== 'Pending' && (
-                                    <div className="flex-shrink-0 text-sm">
-                                        <p className={`font-semibold ${report.status === 'Resolved' ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                                            {report.status === 'Resolved' ? '처리 완료됨' : '기각됨'}
-                                        </p>
-                                        <p className="text-xs text-gray-400 dark:text-gray-500">
-                                            by {report.resolvedBy?.displayName || '관리자'}
-                                        </p>
+                                    <div className="flex-shrink-0 text-sm ...">
+                                        <p className={`... ${report.status === 'Resolved' ? '...' : '...'}`}>{report.status === 'Resolved' ? '처리 완료됨' : '기각됨'}</p>
+                                        <p className="text-xs ...">by {report.resolvedBy?.displayName || '관리자'}</p>
                                     </div>
                                 )}
                             </div>
                         ))}
                     </div>
                 )}
-                {/* 신고 목록 페이지네이션 */}
                 {!loadingReports && reportTotalPages > 1 && (
                     <Pagination currentPage={reportPage} totalPages={reportTotalPages} onPageChange={handleReportPageChange} />
                 )}
@@ -398,14 +385,12 @@ function AdminPanel({ currentUser, onClose, onViewProfile }) {
             )}
           </div>
           
-          {/* 애니메이션 스타일 */}
           <style>{`
             @keyframes fade-in-up {
               from { opacity: 0; transform: translateY(20px); }
               to { opacity: 1; transform: translateY(0); }
             }
             .animate-fade-in-up { animation: fade-in-up 0.3s ease-out forwards; }
-            /* 테이블 스크롤바 디자인 */
             .overflow-y-auto::-webkit-scrollbar { width: 6px; }
             .overflow-y-auto::-webkit-scrollbar-track { background: transparent; }
             .overflow-y-auto::-webkit-scrollbar-thumb { background-color: rgba(156, 163, 175, 0.5); border-radius: 20px; border: 3px solid transparent; background-clip: content-box; }
@@ -414,12 +399,11 @@ function AdminPanel({ currentUser, onClose, onViewProfile }) {
         </div>
       </div>
       
-      {/* 수정 모달 (조건부 렌더링) */}
       {isEditModalOpen && editingUser && (
         <UserEditModal
           user={editingUser}
           onClose={handleCloseEditModal}
-          onUserUpdated={handleUserUpdated} // 수정 성공 시 콜백 전달
+          onUserUpdated={handleUserUpdated}
         />
       )}
     </>
