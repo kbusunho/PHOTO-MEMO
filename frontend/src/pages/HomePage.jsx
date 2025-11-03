@@ -254,6 +254,7 @@ export default function HomePage({ onViewChange }) {
   const handleOpenPasswordModal = () => setShowPasswordModal(true);
   const handleClosePasswordModal = () => setShowPasswordModal(false);
   
+  // '좋아요' 핸들러
   const handleToggleLike = async (photoId) => {
       if (!user) { toast.error("로그인이 필요합니다."); return; }
       try {
@@ -269,6 +270,7 @@ export default function HomePage({ onViewChange }) {
       }
   };
 
+  // '신고' 핸들러
   const handleOpenReportModal = (targetType, targetId, targetPhotoId) => {
       setReportingContent({ type: targetType, id: targetId, photoId: targetPhotoId });
   };
@@ -296,7 +298,7 @@ export default function HomePage({ onViewChange }) {
     <div className="flex flex-col min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white font-sans transition-colors duration-200">
       <Toaster position="top-right" />
 
-      {/* --- 헤더 (모바일 반응형 수정됨) --- */}
+      {/* --- 헤더 (모바일 반응형 수정) --- */}
       <header className="bg-white dark:bg-gray-900/80 backdrop-blur-sm sticky top-0 z-10 p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="container mx-auto flex justify-between items-center">
           <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
@@ -365,9 +367,9 @@ export default function HomePage({ onViewChange }) {
          </div>
 
          {/* 👇 하단: 필터들 (flex-wrap으로 좁은 화면에서 줄바꿈) */}
-         <div className="mt-4 flex flex-wrap gap-4 items-center">
+         <div className="mt-4 flex flex-wrap gap-4 items-center"> {/* flex-wrap 적용 */}
              {/* 방문/위시리스트 탭 */}
-             <div className="flex-shrink-0 bg-white dark:bg-gray-800 shadow-sm rounded-lg p-2 flex flex-wrap gap-1">
+             <div className="flex-shrink-0 bg-white dark:bg-gray-800 shadow-sm rounded-lg p-2 flex flex-wrap gap-1"> {/* flex-wrap 적용 */}
                  <button onClick={() => handleVisitedFilterChange(undefined)} className={`px-3 py-1.5 text-xs sm:text-sm rounded-md transition-colors ${searchParams.visited === undefined ? 'bg-indigo-600 text-white' : 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}> 전체 </button>
                  <button onClick={() => handleVisitedFilterChange('true')} className={`px-3 py-1.5 text-xs sm:text-sm rounded-md transition-colors ${searchParams.visited === 'true' ? 'bg-indigo-600 text-white' : 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}> 방문한 곳 </button>
                   <button onClick={() => handleVisitedFilterChange('false')} className={`px-3 py-1.5 text-xs sm:text-sm rounded-md transition-colors ${searchParams.visited === 'false' ? 'bg-indigo-600 text-white' : 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}> 가고싶은 곳 </button>
@@ -382,7 +384,7 @@ export default function HomePage({ onViewChange }) {
          </div>
 
 
-         {/* 👇 필터 정보 및 총 개수 (md:flex-row -> 좁은 화면에서 세로, 넓은 화면에서 가로) */}
+         {/* 👇 필터 정보: md:flex-row (넓은 화면에서 가로 배치) */}
          <div className="mt-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-2">
            <div className="flex items-center gap-2 flex-wrap">
              {searchParams.search && ( <span className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">검색: '{searchParams.search}'</span> )}
@@ -390,6 +392,7 @@ export default function HomePage({ onViewChange }) {
              {searchParams.priceRange && ( <span className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">가격대: {searchParams.priceRange}</span> )}
              {showClearButton && ( <button onClick={clearFilters} className="text-xs text-indigo-500 dark:text-indigo-400 hover:underline ml-1"> (모든 필터 지우기) </button> )}
            </div>
+           {/* 👇 총 개수: md:mt-0 */}
            <div className="flex-shrink-0 mt-2 md:mt-0">
              {!authLoading && !loading && user && ( <span className="text-gray-500 dark:text-gray-400 text-sm font-semibold"> {showClearButton ? '필터 결과: ' : '내 맛집 기록: '} {totalRestaurants}개 </span> )}
            </div>
@@ -398,17 +401,20 @@ export default function HomePage({ onViewChange }) {
 
       {/* 메인 콘텐츠 영역 */}
       <main className="container mx-auto p-4 md:px-8 flex-grow">
+         {/* 로딩 상태 (스켈레톤 UI) */}
          {(authLoading || loading) && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8">
                 {[...Array(12)].map((_, i) => <CardSkeleton key={i} />)}
             </div>
          )}
+         {/* 데이터 없을 때 */}
          {!authLoading && !loading && user && restaurants.length === 0 && (
            <div className="text-center text-gray-500 dark:text-gray-500 py-10">
                <p className="text-lg"> {searchParams.search || searchParams.tag || searchParams.visited !== undefined || searchParams.priceRange ? '검색 결과가 없습니다.' : '아직 기록된 맛집이 없네요!'} </p>
                <p> {!(searchParams.search || searchParams.tag || searchParams.visited !== undefined || searchParams.priceRange) && '오른쪽 아래의 \'+\' 버튼을 눌러 첫 맛집을 추가해보세요.'} </p>
            </div>
          )}
+         {/* 맛집 카드 목록 */}
          {!authLoading && !loading && user && restaurants.length > 0 && (
            <>
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8">
@@ -419,9 +425,9 @@ export default function HomePage({ onViewChange }) {
                    onEdit={handleOpenModal}
                    onDelete={handleDeleteRestaurant}
                    onTagClick={handleTagClick}
-                   showActions={true}
-                   onToggleLike={() => handleToggleLike(r._id)}
-                   onReport={() => handleOpenReportModal('Photo', r._id, r._id)}
+                   showActions={true} // 내 맛집로그이므로 항상 true
+                   onToggleLike={() => handleToggleLike(r._id)} // 좋아요 핸들러
+                   onReport={() => handleOpenReportModal('Photo', r._id, r._id)} // 신고 핸들러
                    onReportComment={(commentId) => handleOpenReportModal('Comment', commentId, r._id)} // 댓글 신고
                  />
                  ))}
@@ -441,6 +447,7 @@ export default function HomePage({ onViewChange }) {
       {user && showAdminPanel && ( <AdminPanel currentUser={user} onClose={handleCloseAdminPanel} onViewProfile={(userId) => onViewChange('profile', userId)} /> )}
       {user && showPasswordModal && ( <PasswordChangeModal onClose={handleClosePasswordModal} /> )}
       
+      {/* 신고 모달 렌더링 */}
       {reportingContent && (
         <ReportModal
             isOpen={!!reportingContent}
